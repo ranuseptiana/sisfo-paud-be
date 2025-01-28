@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\KelasController;
 use App\Http\Controllers\GuruController;
+use App\Http\Controllers\OrangtuaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,3 +23,4 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 Route::resource('kelas', KelasController::class);
 Route::resource('guru', GuruController::class);
+Route::resource('orangtua', OrangtuaController::class);

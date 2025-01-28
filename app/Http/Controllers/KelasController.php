@@ -17,6 +17,9 @@ class KelasController extends Controller
             'message'=>'success get class',
             'code'=>200,
         ]);
+
+        $kelas = Kelas::with('admin')->paginate(10); // Paginasi kelas
+        return KelasResource::collection($kelas);
     }
 
     // Menyimpan data kelas baru
@@ -24,7 +27,7 @@ class KelasController extends Controller
     {
         $validated = $request->validate([
             'nama_kelas' => 'required|string|max:255',
-            'admin_id' => 'required|exists:admin,id', // Validasi admin ID harus ada di tabel admin
+            // 'admin_id' => 'required|exists:admin,id', // Validasi admin ID harus ada di tabel admin
         ]);
 
         $kelas = Kelas::create($validated);
@@ -36,6 +39,28 @@ class KelasController extends Controller
         ], 201);
     }
 
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'nama_kelas' => 'required|string|max:255'
+        ]);
+
+        $kelas = Kelas::findOrFail($id);
+        $kelas->update($validated);
+
+        return response()->json([
+            'data' => $kelas,
+            'message' => 'Class successfully updated',
+            'code' => 200,
+        ]);
+    }
 
     // Menghapus data kelas
     public function destroy($id)
