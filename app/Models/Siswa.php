@@ -5,26 +5,26 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Orangtua extends Model
+class Siswa extends Model
 {
     use HasFactory;
 
-    protected $table = 'orangtua';
+    protected $table = 'siswa';
     protected $fillable = [
         'no_kk',
-        'nik_ayah',
-        'nama_ayah',
-        'tahun_lahir_ayah',
-        'pekerjaan_ayah',
-        'pendidikan_ayah',
-        'penghasilan_ayah',
-        'nik_ibu',
-        'nama_ibu',
-        'tahun_lahir_ibu',
-        'pekerjaan_ibu',
-        'pendidikan_ibu',
-        'penghasilan_ibu',
-        'no_telp'
+        'nik_siswa',
+        'nisn',
+        'nama_siswa',
+        'tempat_lahir',
+        'tanggal_lahir',
+        'jenis_kelamin',
+        'agama',
+        'alamat',
+        'anak_ke',
+        'jumlah_saudara',
+        'berat_badan',
+        'tinggi_badan',
+        'lingkar_kepala',
     ];
 
     // Relasi ke tabel admin
@@ -37,13 +37,13 @@ class Orangtua extends Model
 
     protected static function booted()
     {
-        static::creating(function ($orangtua) {
+        static::creating(function ($siswa) {
             // Cek apakah admin pertama ada
             $admin = Admin::first();
             if ($admin) {
                 // Isi admin_id dengan admin pertama jika belum diisi
-                if (is_null($orangtua->admin_id)) {
-                    $orangtua->admin_id = $admin->id;
+                if (is_null($siswa->admin_id)) {
+                    $siswa->admin_id = $admin->id;
                 }
             } else {
                 // Jika tidak ada admin, beri pesan atau buat logika lain
@@ -52,8 +52,9 @@ class Orangtua extends Model
         });
     }
 
-    public function siswa()
+    public function orangtua()
     {
-        return $this->hasMany(Siswa::class, 'no_kk', 'no_kk');
+        return $this->belongsTo(Orangtua::class, 'no_kk', 'no_kk');
     }
+
 }

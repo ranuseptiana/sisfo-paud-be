@@ -13,14 +13,6 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::table('tabel_orangtua', function (Blueprint $table) {
-            $table->string('nik_ayah')->default('Tidak diketahui')->nullable()->change();
-            $table->string('nama_ayah')->default('Tidak diketahui')->nullable()->change();
-            $table->string('nik_ibu')->default('Tidak diketahui')->nullable()->change();
-            $table->string('nama_ibu')->default('Tidak diketahui')->nullable()->change();
-            $table->string('no_telp')->default('Tidak diketahui')->nullable()->change();
-        });
-
         Schema::create('orangtua', function (Blueprint $table) {
             $table->id();
             $table->string('no_kk', 16)->unique(); // Kolom kk sebagai unique
