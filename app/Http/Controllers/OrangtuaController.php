@@ -41,7 +41,7 @@ class OrangtuaController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'no_kk' => 'required|unique:orangtua,no_kk',
+            'no_kk' => 'nullable|unique:orangtua,no_kk',
             'nik_ayah' => 'nullable|unique:orangtua,nik_ayah',
             'nama_ayah' => 'nullable|string|max:255',
             'tahun_lahir_ayah' => 'required|integer',
@@ -109,7 +109,7 @@ class OrangtuaController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'no_kk' => 'required|unique:orangtua,no_kk,' . $id,
+            'no_kk' => 'nullable|unique:orangtua,no_kk,' . $id,
             'nik_ayah' => 'nullable|unique:orangtua,nik_ayah,' . $id,
             'nama_ayah' => 'nullable|string|max:255',
             'tahun_lahir_ayah' => 'required|integer',

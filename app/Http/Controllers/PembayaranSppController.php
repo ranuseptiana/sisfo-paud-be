@@ -14,7 +14,7 @@ class PembayaranSppController extends Controller
      */
     public function index()
     {
-        $pembayaranspp = PembayaranSpp::all();
+        $pembayaranspp = PembayaranSpp::with(['siswa:id,nama_siswa'])->get();
         return response()->json([
             'data' => $pembayaranspp,
             'message' => 'Success get pembayaran spp data',
@@ -41,9 +41,9 @@ class PembayaranSppController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'siswa_id' => 'required|unique:siswa,siswa_id',
-            'tanggal_pembayaran' => 'required|date',
-            'bukti_pembayaran' => 'required|string|max:255',
+            'siswa_id' => 'required|exists:siswa,id',
+            'tanggal_pembayaran' => 'nullable|date',
+            'bukti_pembayaran' => 'nullable|string|max:255',
             'status_pembayaran' => 'required|string|max:255',
             'status_rapor' => 'required|string|max:255'
         ]);
@@ -95,8 +95,8 @@ class PembayaranSppController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'tanggal_pembayaran' => 'required|date',
-            'bukti_pembayaran' => 'required|string|max:255',
+            'tanggal_pembayaran' => 'nullable|date',
+            'bukti_pembayaran' => 'nullable|string|max:255',
             'status_pembayaran' => 'required|string|max:255',
             'status_rapor' => 'required|string|max:255'
         ]);

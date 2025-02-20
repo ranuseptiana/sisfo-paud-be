@@ -15,7 +15,8 @@ class PembayaranSpp extends Model
         'tanggal_pembayaran',
         'bukti_pembayaran',
         'status_pembayaran',
-        'status_rapor'
+        'status_rapor',
+        'admin_id'
     ];
 
     public $timestamps = false;

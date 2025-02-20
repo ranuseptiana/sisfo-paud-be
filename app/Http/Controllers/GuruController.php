@@ -27,19 +27,19 @@ class GuruController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nip' => 'required|string|max:255',
+            'nip' => 'required|integer',
             'username' => 'required|string|max:255|unique:guru,username',
             'password' => 'required|string|min:6',
             'nama_lengkap' => 'required|string|max:255',
             'gender' => 'required|string|max:255',
-            'tgl_lahir' => 'required|date',
+            'tempat_lahir' => 'required|string|max:255',
+            'tgl_lahir' => 'nullable|date',
             'agama' => 'required|string|max:255',
-            'alamat' => 'required|string',
-            'no_telp' => 'required|string',
+            'alamat' => 'nullable|string',
+            'no_telp' => 'nullable|string|max:15',
             'jabatan' => 'required|string',
             'jumlah_hari_mengajar' => 'required|integer',
             'tugas_mengajar' => 'required|string',
-            // 'admin_id' => 'required|exists:admin,id', // Pastikan admin_id valid
         ]);
 
         $guru = Guru::create($validated);
@@ -61,7 +61,7 @@ class GuruController extends Controller
     {
         $guru = Guru::findOrFail($id);
 
-        return reponse()->json([
+        return response()->json([
             'data' => $guru,
             'message' => 'Data Siswa Berhasil Ditampilkan',
             'code' => 200,
@@ -75,42 +75,62 @@ class GuruController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'nip' => 'required|string|max:255',
-            'username' => 'required|string|max:255|unique:guru,username',
-            'password' => 'required|string|min:6',
-            'nama_lengkap' => 'required|string|max:255',
-            'gender' => 'required|string|max:255',
-            'tgl_lahir' => 'required|date',
-            'agama' => 'required|string|max:255',
-            'alamat' => 'required|string',
-            'no_telp' => 'required|string',
-            'jabatan' => 'required|string',
-            'jumlah_hari_mengajar' => 'required|integer',
-            'tugas_mengajar' => 'required|string'
-        ]);
+    public function update(Request $request, $id) {
 
-        $guru = Guru::findOrFail($id);
-        $guru->update($validated);
+    $validated = $request->validate([
+        'nip' => 'required|integer', // Tidak perlu unique karena hanya sebagai nomor pegawai
+        'username' => 'required|string|max:255|unique:guru,username,' . $id,
+        'password' => 'nullable|string|min:6', // Password bisa dikosongkan jika tidak ingin diubah
+        'nama_lengkap' => 'required|string|max:255',
+        'gender' => 'required|string|max:255',
+        'tempat_lahir' => 'required|string|max:255',
+        'tgl_lahir' => 'nullable|date',
+        'agama' => 'required|string|max:255',
+        'alamat' => 'nullable|string',
+        'no_telp' => 'nullable|string|max:15',
+        'jabatan' => 'required|string',
+        'jumlah_hari_mengajar' => 'required|integer',
+        'tugas_mengajar' => 'required|string',
+    ]);
 
-        return response()->json([
-            'data' => $guru,
-            'message' => 'Data Guru Berhasil Ditambahkan',
-            'code' => 200,
-        ]);
+    $guru = Guru::findOrFail($id);
+
+    // Debugging untuk melihat data yang diterima
+    // dd($request->all());
+
+    // Hash password jika diisi
+    // if ($request->filled('password')) {
+    //     $validated['password'] = Hash::make($request->password);
+    // } else {
+    //     unset($validated['password']);
+    // }
+
+    $guru->update($validated);
+
+    return response()->json([
+        'data' => $guru,
+        'message' => 'Data Guru Berhasil Diperbarui',
+        'code' => 200,
+    ]);
     }
 
     // Menghapus data guru
     public function destroy($id)
     {
-        $guru = Guru::findOrFail($id);
-        $guru->delete();
+        $guru = Guru::where('id', $id)->first();
 
-        return response()->json([
-            'message' => 'Guru successfully deleted',
-            'code' => 200,
-        ]);
+if (!$guru) {
+    return response()->json([
+        'message' => 'Guru not found',
+        'code' => 404,
+    ], 404);
+}
+
+$guru->delete();
+
+return response()->json([
+    'message' => 'Guru successfully deleted',
+    'code' => 200,
+]);
     }
 }

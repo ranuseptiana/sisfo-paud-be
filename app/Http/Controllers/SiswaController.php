@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Siswa;
+use Carbon\Carbon;
 
 class SiswaController extends Controller
 {
@@ -14,7 +15,11 @@ class SiswaController extends Controller
      */
     public function index()
     {
-        $siswa = Siswa::all();
+        $siswa = Siswa::all()->map(function ($item) {
+            $item->tanggal_lahir = Carbon::parse($item->tanggal_lahir)->format('Y-m-d');
+            return $item;
+        });
+
         return response()->json([
             'data' => $siswa,
             'message' => 'Data Siswa Berhasil Ditampilkan',
@@ -55,11 +60,12 @@ class SiswaController extends Controller
             'berat_badan' => 'required|integer',
             'tinggi_badan' => 'required|integer',
             'lingkar_kepala' => 'nullable|integer',
+            'kelas_id' => 'required|exists:kelas,id'
         ]);
 
-        $data = $validated;
+        $validated['tanggal_lahir'] = Carbon::parse($validated['tanggal_lahir'])->format('Y-m-d');
 
-        $siswa = Siswa::create($data);
+        $siswa = Siswa::create($validated);
 
         return response()->json([
             'data' => $siswa,
@@ -77,8 +83,9 @@ class SiswaController extends Controller
     public function show($id)
     {
         $siswa = Siswa::findOrFail($id);
+        $siswa->tanggal_lahir = Carbon::parse($siswa->tanggal_lahir)->format('Y-m-d');
 
-        return reponse()->json([
+        return response()->json([
             'data' => $siswa,
             'message' => 'Data Siswa Berhasil Ditampilkan',
             'code' => 200,
@@ -107,7 +114,7 @@ class SiswaController extends Controller
     {
         $validated = $request->validate([
             'no_kk' => 'required|exists:orangtua,no_kk',
-            'nik_siswa' => 'required|unique:siswa,nik_siswa',
+            'nik_siswa' => 'required|unique:siswa,nik_siswa,' . $id . ',id',
             'nisn' => 'nullable|string|max:10',
             'nama_siswa' => 'required|string|max:255',
             'tempat_lahir' => 'required|string|max:255',
@@ -120,14 +127,17 @@ class SiswaController extends Controller
             'berat_badan' => 'required|integer',
             'tinggi_badan' => 'required|integer',
             'lingkar_kepala' => 'required|integer',
+            'kelas_id' => 'required|exists:kelas,id'
         ]);
+
+        $validated['tanggal_lahir'] = Carbon::parse($validated['tanggal_lahir'])->format('Y-m-d');
 
         $siswa = Siswa::findOrFail($id);
         $siswa->update($validated);
 
         return response()->json([
             'data' => $siswa,
-            'message' => 'Data Siswa Berhasil Ditambahkan',
+            'message' => 'Data Siswa Berhasil Diperbarui',
             'code' => 200,
         ]);
     }
@@ -142,7 +152,7 @@ class SiswaController extends Controller
     {
         $siswa = Siswa::findOrFail($id);
         $siswa->delete();
-        return reponse()->json([
+        return response()->json([
             'message' => 'Data Siswa Berhasil Dihapus',
             'code' => 200,
         ]);

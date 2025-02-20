@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon;
 
 class Siswa extends Model
 {
@@ -25,6 +26,7 @@ class Siswa extends Model
         'berat_badan',
         'tinggi_badan',
         'lingkar_kepala',
+        'kelas_id'
     ];
 
     // Relasi ke tabel admin
@@ -52,9 +54,25 @@ class Siswa extends Model
         });
     }
 
+    protected $dates = ['tanggal_lahir']; // Pastikan field bertipe DATE di database
+
+    public function getTanggalLahirAttribute($value)
+    {
+        return Carbon::parse($value)->format('d-m-Y');
+    }
+
     public function orangtua()
     {
         return $this->belongsTo(Orangtua::class, 'no_kk', 'no_kk');
     }
 
+    public function pembayaranSPP()
+    {
+        return $this->hasMany(PembayaranSPP::class, 'siswa_id', 'id');
+    }
+
+    public function kelas()
+    {
+        return $this->belongsTo(Kelas::class, 'kelas_id');
+    }
 }

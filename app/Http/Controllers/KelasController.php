@@ -8,18 +8,30 @@ use Illuminate\Http\Request;
 
 class KelasController extends Controller
 {
+    // Menghitung jumlah siswa per kelas
+    public function jumlahSiswaPerKelas($id)
+    {
+        $kelas = Kelas::withCount('siswa')->findOrFail($id);
+
+        return response()->json([
+            'kelas' => $kelas->nama_kelas, // Pastikan nama_kelas ada di database
+            'jumlah_siswa' => $kelas->siswa_count,
+            'message' => 'Jumlah siswa dalam kelas berhasil ditampilkan',
+            'code' => 200,
+        ]);
+    }
+
     // Menampilkan semua data kelas
     public function index()
     {
-        $kelas = Kelas::with('admin')->get(); // Mengambil data kelas beserta admin
+        // Mengambil semua kelas + jumlah siswa
+        $kelas = Kelas::withCount('siswa')->paginate(10); // Menggunakan pagination
+
         return response()->json([
             'data' => $kelas,
-            'message'=>'success get class',
-            'code'=>200,
+            'message' => 'Success get class',
+            'code' => 200,
         ]);
-
-        $kelas = Kelas::with('admin')->paginate(10); // Paginasi kelas
-        return KelasResource::collection($kelas);
     }
 
     // Menyimpan data kelas baru
@@ -27,7 +39,6 @@ class KelasController extends Controller
     {
         $validated = $request->validate([
             'nama_kelas' => 'required|string|max:255',
-            // 'admin_id' => 'required|exists:admin,id', // Validasi admin ID harus ada di tabel admin
         ]);
 
         $kelas = Kelas::create($validated);
@@ -39,13 +50,7 @@ class KelasController extends Controller
         ], 201);
     }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
+    // Update data kelas
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
@@ -67,10 +72,10 @@ class KelasController extends Controller
     {
         $kelas = Kelas::findOrFail($id);
         $kelas->delete();
+
         return response()->json([
             'message' => 'Class successfully deleted',
             'code' => 200,
         ]);
     }
 }
-
