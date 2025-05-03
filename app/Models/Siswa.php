@@ -26,7 +26,9 @@ class Siswa extends Model
         'berat_badan',
         'tinggi_badan',
         'lingkar_kepala',
-        'kelas_id'
+        'kelas_id',
+        'status',
+        'tahun_ajaran_id'
     ];
 
     // Relasi ke tabel admin
@@ -75,4 +77,10 @@ class Siswa extends Model
     {
         return $this->belongsTo(Kelas::class, 'kelas_id');
     }
+
+    public function tahunAjaran()
+    {
+        return $this->belongsTo(TahunAjaran::class, 'tahun_ajaran_id');
+    }
+
 }

@@ -3,14 +3,19 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Admin extends Model
+class Admin extends Authenticatable
 {
-    use HasFactory;
+    use HasFactory, HasApiTokens;
 
     protected $table = 'admin'; // Nama tabel
-    protected $fillable = ['email_admin', 'password_admin']; // Kolom yang bisa diisi
+    protected $fillable = ['username', 'password']; // Kolom yang bisa diisi
+
+    protected $hidden = [
+        'password', // Pastikan ini benar
+    ];
 
     // Relasi ke tabel kelas
     public function kelas()

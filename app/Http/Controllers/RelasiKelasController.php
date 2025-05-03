@@ -14,7 +14,7 @@ class RelasiKelasController extends Controller
      */
     public function index()
     {
-        $data = RelasiKelas::with(['siswa', 'kelas', 'guru'])->get();
+        $data = RelasiKelas::with(['kelas', 'guru'])->get();
         return response()->json([
             'data' => $data,
             'message' => 'Data Relasi Kelas berhasil ditampilkan',
@@ -41,7 +41,7 @@ class RelasiKelasController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'siswa_id' => 'required|exists:siswa,id',
+            // 'siswa_id' => 'required|exists:siswa,id',
             'kelas_id' => 'required|exists:kelas,id',
             'guru_id' => 'required|exists:guru,id',
         ]);
@@ -64,7 +64,7 @@ class RelasiKelasController extends Controller
      */
     public function show($id)
     {
-        $data = RelasiKelas::with(['siswa', 'kelas', 'guru'])->findOrFail($id);
+        $data = RelasiKelas::with(['kelas', 'guru'])->findOrFail($id);
 
         return response()->json([
             'data' => $data,
@@ -94,7 +94,6 @@ class RelasiKelasController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'siswa_id' => 'required|exists:siswa,id',
             'kelas_id' => 'required|exists:kelas,id',
             'guru_id' => 'required|exists:guru,id',
         ]);

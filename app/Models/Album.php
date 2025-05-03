@@ -5,26 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class PembayaranSpp extends Model
+class Album extends Model
 {
     use HasFactory;
 
-    protected $table = 'pembayaran_spp';
+    protected $table = 'album';
+    protected $primaryKey = 'id';
     protected $fillable = [
-        'siswa_id',
-        'tanggal_pembayaran',
-        'bukti_pembayaran',
-        'status_pembayaran',
-        'status_rapor',
-        'nominal',
-        'admin_id'
+        'nama_album',
+        'deskripsi',
+        'photo_cover'
     ];
-
-    public $timestamps = false;
-
-    public function siswa() {
-        return $this->belongsTo(Siswa::class, 'siswa_id');
-    }
 
     // Relasi ke tabel admin
     public function admin()
@@ -34,18 +25,23 @@ class PembayaranSpp extends Model
 
     protected static function booted()
     {
-        static::creating(function ($orangtua) {
+        static::creating(function ($album) {
             // Cek apakah admin pertama ada
             $admin = Admin::first();
             if ($admin) {
                 // Isi admin_id dengan admin pertama jika belum diisi
-                if (is_null($orangtua->admin_id)) {
-                    $orangtua->admin_id = $admin->id;
+                if (is_null($album->admin_id)) {
+                    $album->admin_id = $admin->id;
                 }
             } else {
                 // Jika tidak ada admin, beri pesan atau buat logika lain
                 throw new \Exception("Tidak ada admin yang terdaftar!");
             }
         });
+    }
+
+    public function foto()
+    {
+        return $this->hasMany(Foto::class);
     }
 }

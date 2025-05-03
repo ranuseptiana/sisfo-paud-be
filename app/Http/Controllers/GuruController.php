@@ -63,7 +63,7 @@ class GuruController extends Controller
 
         return response()->json([
             'data' => $guru,
-            'message' => 'Data Siswa Berhasil Ditampilkan',
+            'message' => 'Data Guru Berhasil Ditampilkan',
             'code' => 200,
         ]);
     }
@@ -95,16 +95,6 @@ class GuruController extends Controller
 
     $guru = Guru::findOrFail($id);
 
-    // Debugging untuk melihat data yang diterima
-    // dd($request->all());
-
-    // Hash password jika diisi
-    // if ($request->filled('password')) {
-    //     $validated['password'] = Hash::make($request->password);
-    // } else {
-    //     unset($validated['password']);
-    // }
-
     $guru->update($validated);
 
     return response()->json([
@@ -119,18 +109,18 @@ class GuruController extends Controller
     {
         $guru = Guru::where('id', $id)->first();
 
-if (!$guru) {
-    return response()->json([
-        'message' => 'Guru not found',
-        'code' => 404,
-    ], 404);
-}
+        if (!$guru) {
+            return response()->json([
+                'message' => 'Guru not found',
+                'code' => 404,
+            ], 404);
+        }
 
-$guru->delete();
+        $guru->delete();
 
-return response()->json([
-    'message' => 'Guru successfully deleted',
-    'code' => 200,
-]);
+        return response()->json([
+            'message' => 'Guru successfully deleted',
+            'code' => 200,
+        ]);
     }
 }

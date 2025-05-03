@@ -45,7 +45,8 @@ class PembayaranSppController extends Controller
             'tanggal_pembayaran' => 'nullable|date',
             'bukti_pembayaran' => 'nullable|string|max:255',
             'status_pembayaran' => 'required|string|max:255',
-            'status_rapor' => 'required|string|max:255'
+            'status_rapor' => 'required|string|max:255',
+            'nominal' => 'required|numeric'
         ]);
 
         $pembayaranspp = PembayaranSpp::create($validated);
@@ -98,7 +99,8 @@ class PembayaranSppController extends Controller
             'tanggal_pembayaran' => 'nullable|date',
             'bukti_pembayaran' => 'nullable|string|max:255',
             'status_pembayaran' => 'required|string|max:255',
-            'status_rapor' => 'required|string|max:255'
+            'status_rapor' => 'required|string|max:255',
+            'nominal' => 'required|numeric'
         ]);
 
         $pembayaranspp = PembayaranSpp::findOrFail($id);

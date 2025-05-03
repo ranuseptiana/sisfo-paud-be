@@ -10,15 +10,16 @@ class RelasiKelas extends Model
     use HasFactory;
 
     protected $table = 'relasi_kelas';
-    protected $fillabe = [
-        'kelas_id' => 'required',
-        'guru_id' => 'required',
-        'siswa_id' => 'required',
+    protected $fillable = [
+        'kelas_id',
+        'guru_id',
     ];
 
-    public function siswa() {
-        return $this->belongsTo(Siswa::class, 'siswa_id');
-    }
+    public $timestamps = false;
+
+    // public function siswa() {
+    //     return $this->belongsTo(Siswa::class, 'siswa_id');
+    // }
 
     public function kelas() {
         return $this->belongsTo(Kelas::class, 'kelas_id');

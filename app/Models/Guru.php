@@ -54,4 +54,10 @@ class Guru extends Model
             }
         });
     }
+
+    public function kelas()
+    {
+        return $this->belongsToMany(Kelas::class, 'relasi_kelas', 'guru_id', 'kelas_id');
+    }
+
 }

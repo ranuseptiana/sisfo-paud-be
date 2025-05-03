@@ -60,7 +60,9 @@ class SiswaController extends Controller
             'berat_badan' => 'required|integer',
             'tinggi_badan' => 'required|integer',
             'lingkar_kepala' => 'nullable|integer',
-            'kelas_id' => 'required|exists:kelas,id'
+            'kelas_id' => 'required|exists:kelas,id',
+            'status' => 'required|string|max:255',
+            'tahun_ajaran_id' => 'required|exists:tahun_ajaran,id'
         ]);
 
         $validated['tanggal_lahir'] = Carbon::parse($validated['tanggal_lahir'])->format('Y-m-d');
@@ -127,7 +129,9 @@ class SiswaController extends Controller
             'berat_badan' => 'required|integer',
             'tinggi_badan' => 'required|integer',
             'lingkar_kepala' => 'required|integer',
-            'kelas_id' => 'required|exists:kelas,id'
+            'kelas_id' => 'required|exists:kelas,id',
+            'status' => 'required|string|max:255',
+            'tahun_ajaran_id' => 'required|exists:tahun_ajaran,id'
         ]);
 
         $validated['tanggal_lahir'] = Carbon::parse($validated['tanggal_lahir'])->format('Y-m-d');
