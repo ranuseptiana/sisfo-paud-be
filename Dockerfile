@@ -20,7 +20,6 @@ RUN composer install
 
 # Set proper permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-
 EXPOSE 9000
 
-CMD ["php-fpm"]
+CMD ["php", "-S", "0.0.0.0:9000", "-t", "public"]
