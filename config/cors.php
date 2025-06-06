@@ -21,7 +21,7 @@ return [
     'allowed_headers' => ['*'],
     'exposed_headers' => [],
     'max_age' => 0,
-    'allowed_origins' => ['http://localhost:5173'],
+    'allowed_origins' => ['https://sistem-informasi-paud.vercel.app'],
     'allow_credentials' => true,
     'supports_credentials' => true,
 ];
