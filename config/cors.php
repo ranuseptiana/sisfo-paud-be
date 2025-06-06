@@ -21,7 +21,7 @@ return [
     'allowed_headers' => ['*'],
     'exposed_headers' => [],
     'max_age' => 0,
-    'allowed_origins' => ['http://localhost:5173'], // Ubah * menjadi alamat frontend
+    'allowed_origins' => ['http://localhost:5173'],
     'allow_credentials' => true,
     'supports_credentials' => true,
 ];

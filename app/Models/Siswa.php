@@ -83,4 +83,14 @@ class Siswa extends Model
         return $this->belongsTo(TahunAjaran::class, 'tahun_ajaran_id');
     }
 
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'siswa_id');
+    }
+
+    public function getUserData()
+    {
+        return $this->load('user')->user;
+    }
+
 }

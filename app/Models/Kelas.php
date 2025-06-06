@@ -46,13 +46,32 @@ class Kelas extends Model
     // Relasi ke RelasiKelas (menghubungkan ke Guru)
     public function relasiGuru()
     {
-        return $this->hasMany(RelasiKelas::class, 'kelas_id');
+        return $this->hasMany(RelasiKelas::class, 'kelas_id', 'id');
     }
 
     // Ambil daftar guru melalui RelasiKelas
     public function guru()
     {
-        return $this->hasManyThrough(Guru::class, RelasiKelas::class, 'kelas_id', 'id', 'id', 'guru_id');
+        return $this->hasManyThrough(
+            Guru::class,
+            RelasiKelas::class,
+            'kelas_id',
+            'id',
+            'id',
+            'guru_id'
+        );
+    }
+
+    public function waliKelas()
+    {
+        return $this->hasOneThrough(
+            Guru::class,
+            RelasiKelas::class,
+            'kelas_id',
+            'id',
+            'id',
+            'guru_id'
+        )->where('relasi_kelas.is_wali_kelas', 'true');
     }
 }
 

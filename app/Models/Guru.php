@@ -11,14 +11,12 @@ class Guru extends Model
 
     public $timestamps = false; // Menonaktifkan penggunaan created_at dan updated_at
 
-    // protected $primaryKey = 'nip'; // Menentukan kolom nip sebagai primary key
-    // public $incrementing = false; // Karena nip bukan auto-increment
+    // protected $primaryKey = 'nip';
+    // public $incrementing = false;
 
-    protected $table = 'guru'; // Nama tabel
+    protected $table = 'guru';
     protected $fillable = [
         'nip',
-        'username',
-        'password',
         'nama_lengkap',
         'gender',
         'agama',
@@ -30,7 +28,7 @@ class Guru extends Model
         'admin_id',
         'tgl_lahir',
         'tempat_lahir',
-    ]; // Kolom yang bisa diisi
+    ];
 
     // Relasi ke tabel admin
     public function admin()
@@ -58,6 +56,10 @@ class Guru extends Model
     public function kelas()
     {
         return $this->belongsToMany(Kelas::class, 'relasi_kelas', 'guru_id', 'kelas_id');
+    }
+
+    public function user() {
+        return $this->hasOne(User::class, 'guru_id');
     }
 
 }

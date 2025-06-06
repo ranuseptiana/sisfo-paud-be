@@ -22,17 +22,19 @@ class TahunAjaran extends Model
      protected static function booted()
     {
         static::creating(function ($tahun_ajaran) {
-            // Cek apakah admin pertama ada
             $admin = Admin::first();
             if ($admin) {
-                // Isi admin_id dengan admin pertama jika belum diisi
                 if (is_null($tahun_ajaran->admin_id)) {
                     $tahun_ajaran->admin_id = $admin->id;
                 }
             } else {
-                // Jika tidak ada admin, beri pesan atau buat logika lain
                 throw new \Exception("Tidak ada admin yang terdaftar!");
             }
         });
+    }
+
+    public function siswa()
+    {
+        return $this->belongsTo(Siswa::class);
     }
 }

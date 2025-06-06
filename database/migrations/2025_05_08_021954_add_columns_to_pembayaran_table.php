@@ -13,8 +13,9 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::table('album', function (Blueprint $table) {
-            $table->string('photo_cover')->nullable();
+        Schema::table('pembayaran', function (Blueprint $table) {
+            $table->enum('jenis_pembayaran', ['pendaftaran baru', 'daftar ulang'])->nullable();
+            $table->string('status_atribut')->nullable();
         });
     }
 
@@ -25,7 +26,7 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::table('album', function (Blueprint $table) {
+        Schema::table('pembayaran', function (Blueprint $table) {
             //
         });
     }

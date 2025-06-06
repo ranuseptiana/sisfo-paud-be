@@ -13,6 +13,7 @@ class RelasiKelas extends Model
     protected $fillable = [
         'kelas_id',
         'guru_id',
+        'is_wali_kelas'
     ];
 
     public $timestamps = false;

@@ -19,8 +19,12 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
-        'email',
+        'username',
         'password',
+        'user_type',
+        'id_reference',
+        'id_siswa',
+        'id_guru',
     ];
 
     /**
@@ -41,4 +45,19 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+
+    public function siswa()
+    {
+        return $this->belongsTo(Siswa::class, 'siswa_id');
+    }
+
+    public function guru()
+    {
+        return $this->belongsTo(Guru::class, 'guru_id');
+    }
+
+    public function getSiswaData()
+    {
+        return $this->load('siswa.kelas.waliKelas', 'siswa.kelas.siswa')->siswa;
+    }
 }

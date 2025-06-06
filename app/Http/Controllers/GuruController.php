@@ -12,7 +12,6 @@ class GuruController extends Controller
 {
     public $timestamps = false;
 
-    // Menampilkan semua data guru
     public function index()
     {
         $guru = Guru::all();
@@ -23,13 +22,10 @@ class GuruController extends Controller
         ]);
     }
 
-    // Menyimpan data guru baru
     public function store(Request $request)
     {
         $validated = $request->validate([
             'nip' => 'required|integer',
-            'username' => 'required|string|max:255|unique:guru,username',
-            'password' => 'required|string|min:6',
             'nama_lengkap' => 'required|string|max:255',
             'gender' => 'required|string|max:255',
             'tempat_lahir' => 'required|string|max:255',
@@ -78,9 +74,7 @@ class GuruController extends Controller
     public function update(Request $request, $id) {
 
     $validated = $request->validate([
-        'nip' => 'required|integer', // Tidak perlu unique karena hanya sebagai nomor pegawai
-        'username' => 'required|string|max:255|unique:guru,username,' . $id,
-        'password' => 'nullable|string|min:6', // Password bisa dikosongkan jika tidak ingin diubah
+        'nip' => 'required|integer',
         'nama_lengkap' => 'required|string|max:255',
         'gender' => 'required|string|max:255',
         'tempat_lahir' => 'required|string|max:255',
@@ -104,7 +98,6 @@ class GuruController extends Controller
     ]);
     }
 
-    // Menghapus data guru
     public function destroy($id)
     {
         $guru = Guru::where('id', $id)->first();

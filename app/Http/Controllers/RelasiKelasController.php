@@ -44,6 +44,7 @@ class RelasiKelasController extends Controller
             // 'siswa_id' => 'required|exists:siswa,id',
             'kelas_id' => 'required|exists:kelas,id',
             'guru_id' => 'required|exists:guru,id',
+            'is_wali_kelas' => 'nullable'
         ]);
 
         $data = RelasiKelas::create($validated);
@@ -96,6 +97,7 @@ class RelasiKelasController extends Controller
         $validated = $request->validate([
             'kelas_id' => 'required|exists:kelas,id',
             'guru_id' => 'required|exists:guru,id',
+            'is_wali_kelas' => 'nullable'
         ]);
 
         $data = RelasiKelas::findOrFail($id);
