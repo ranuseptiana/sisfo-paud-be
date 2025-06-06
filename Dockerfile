@@ -1,19 +1,26 @@
-FROM php:8.2-apache
+FROM php:8.2-fpm
 
+# Install dependencies
 RUN apt-get update && apt-get install -y \
-    git unzip curl libzip-dev libonig-dev libxml2-dev \
-    zip libpng-dev libjpeg-dev libonig-dev libfreetype6-dev \
+    git curl zip unzip libpng-dev libonig-dev libxml2-dev \
+    libzip-dev libjpeg-dev libfreetype6-dev \
     && docker-php-ext-install pdo pdo_mysql zip mbstring bcmath fileinfo
 
+# Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-COPY . /var/www/html
 WORKDIR /var/www/html
 
-RUN composer install --no-interaction --optimize-autoloader
+# Copy project files
+COPY . .
 
+# Install PHP dependencies
+RUN composer install
+
+# Set proper permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-RUN a2enmod rewrite
+# Expose port (jika perlu)
+EXPOSE 9000
 
-COPY ./000-default.conf /etc/apache2/sites-available/000-default.conf
+CMD ["php-fpm"]
