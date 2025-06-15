@@ -30,7 +30,7 @@ Route::resource('orangtua', OrangtuaController::class);
 Route::resource('siswa', SiswaController::class);
 Route::resource('relasikelas', RelasiKelasController::class);
 Route::resource('pembayaran', PembayaranController::class);
-Route::get('siswa/{idSiswa}/pembayaran/', [PembayaranController::class, 'showByPembayaranIdSiswa'])->middleware('auth:sanctum');
+Route::get('siswa/{idSiswa}/pembayaran/', [PembayaranController::class, 'showByPembayaranIdSiswa']);
 Route::resource('cicilan', CicilanController::class);
 Route::get('/cicilan/pembayaran/{id}', [CicilanController::class, 'showByPembayaranId']);
 Route::resource('tahunajaran', TahunAjaranController::class);
@@ -50,7 +50,7 @@ Route::prefix('auth')->group(function () {
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('siswa')->group(function(){
-        Route::get('/checkBayar/{idSiswa}', [PembayaranController::class, 'showByPembayaranIdSiswa'])->middleware('auth:sanctum');
+        Route::get('/checkBayar/{idSiswa}', [PembayaranController::class, 'showByPembayaranIdSiswa']);
         Route::get('/pembayaran/{idSiswa}/{jenis}', [PembayaranController::class, 'showByJenisPembayaran'])
             ->where('jenis', 'pendaftaran_baru|daftar_ulang');
     });

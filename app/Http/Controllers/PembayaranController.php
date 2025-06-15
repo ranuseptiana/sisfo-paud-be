@@ -8,6 +8,9 @@ use App\Models\Siswa;
 use App\Models\TahunAjaran;
 use App\Models\Cicilan;
 use App\Models\User;
+use App\Models\Admin;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 
 class PembayaranController extends Controller
@@ -17,7 +20,7 @@ class PembayaranController extends Controller
      *
      * @param  int  $id
      * @return \Illuminate\Http\Response
-    */
+     */
     public function showByPembayaranIdSiswa($id)
     {
         $pembayaran = Pembayaran::with(['siswa', 'cicilan' => function ($query) {
@@ -25,19 +28,11 @@ class PembayaranController extends Controller
         }])->where('siswa_id', $id)->get();
 
         $formattedData = $pembayaran->map(function ($item) {
-            $cicilan = $item->cicilan;
+            $item->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
 
-            $totalCicilan = $item->metode_pembayaran === 'cicilan'
-                ? $cicilan->where('status_verifikasi', 'disetujui')->sum('nominal_cicilan')
-                : $item->nominal;
-
-            $sisaPembayaran = max(0, $item->nominal - $totalCicilan);
-
-            $statusCicilan = $totalCicilan >= $item->nominal ? 'Lunas' : 'Belum Lunas';
-
-            if ($item->status_pembayaran !== 'Lunas' && $statusCicilan === 'Lunas') {
-                $item->status_pembayaran = 'Lunas';
-                $item->save();
+            $buktiPembayaranUrl = null;
+            if ($item->bukti_pembayaran) {
+                $buktiPembayaranUrl = Storage::url($item->bukti_pembayaran);
             }
 
             return [
@@ -50,10 +45,12 @@ class PembayaranController extends Controller
                 'metode_pembayaran' => $item->metode_pembayaran,
                 'jenis_pembayaran' => $item->jenis_pembayaran,
                 'status_atribut' => $item->status_atribut,
-                'status_cicilan' => $statusCicilan,
-                'total_cicilan' => $totalCicilan,
-                'sisa_pembayaran' => $sisaPembayaran,
-                'cicilan' => $cicilan,
+                'bukti_pembayaran' => $item->bukti_pembayaran,
+                'bukti_pembayaran_url' => $buktiPembayaranUrl,
+                'status_cicilan' => $item->status_cicilan,
+                'total_cicilan' => $item->total_cicilan,
+                'sisa_pembayaran' => $item->sisa_pembayaran,
+                'cicilan' => $item->cicilan,
                 'siswa' => $item->siswa
             ];
         });
@@ -64,8 +61,7 @@ class PembayaranController extends Controller
     public function showByJenisPembayaran($idSiswa, $jenis)
     {
         $user = auth()->user();
-
-        if ($user->siswa_id != $idSiswa) {
+        if ($user->id != $idSiswa) {
             return response()->json([
                 'message' => 'Anda hanya bisa mengakses data pembayaran sendiri',
                 'code' => 403
@@ -89,7 +85,7 @@ class PembayaranController extends Controller
                 'siswa.tahunAjaran:id,tahun',
                 'cicilan:id,pembayaran_id,nominal_cicilan,tanggal_cicilan,status_verifikasi'
             ])
-            ->where('siswa_id', $idSiswa)
+            ->where('siswa_id', $user->siswa_id)
             ->where('jenis_pembayaran', $dbJenis)
             ->get();
 
@@ -101,20 +97,11 @@ class PembayaranController extends Controller
         }
 
         $formattedData = $pembayaran->map(function ($item) {
-            $cicilan = $item->cicilan;
+            $item->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
 
-            $totalCicilan = $item->metode_pembayaran === 'cicilan'
-                ? $cicilan->where('status_verifikasi', 'disetujui')->sum('nominal_cicilan')
-                : $item->nominal;
-
-            $sisaPembayaran = max(0, $item->nominal - $totalCicilan);
-
-            $statusCicilan = $totalCicilan >= $item->nominal ? 'Lunas' : 'Belum Lunas';
-
-            // Auto-update status pembayaran jika cicilan sudah lunas
-            if ($item->status_pembayaran !== 'Lunas' && $statusCicilan === 'Lunas') {
-                $item->status_pembayaran = 'Lunas';
-                $item->save();
+            $buktiPembayaranUrl = null;
+            if ($item->bukti_pembayaran) {
+                $buktiPembayaranUrl = Storage::url($item->bukti_pembayaran);
             }
 
             return [
@@ -127,10 +114,12 @@ class PembayaranController extends Controller
                 'nominal' => $item->nominal,
                 'jenis_pembayaran' => $item->jenis_pembayaran,
                 'status_atribut' => $item->status_atribut,
-                'status_cicilan' => $statusCicilan,
-                'total_cicilan' => $totalCicilan,
-                'sisa_pembayaran' => $sisaPembayaran,
-                'cicilan' => $cicilan,
+                'bukti_pembayaran' => $item->bukti_pembayaran,
+                'bukti_pembayaran_url' => $buktiPembayaranUrl,
+                'status_cicilan' => $item->status_cicilan,
+                'total_cicilan' => $item->total_cicilan,
+                'sisa_pembayaran' => $item->sisa_pembayaran,
+                'cicilan' => $item->cicilan,
                 'siswa' => $item->siswa
             ];
         });
@@ -149,14 +138,16 @@ class PembayaranController extends Controller
      */
     public function index()
     {
-        $pembayaran = Pembayaran::with(['siswa:id,nisn,nama_siswa,tahun_ajaran_id'])->get();
+        $pembayaran = Pembayaran::with(['siswa:id,nisn,nama_siswa,tahun_ajaran_id', 'cicilan'])->get();
 
         $pembayaran = $pembayaran->map(function ($item) {
-            $totalCicilan = $item->metode_pembayaran === 'cicilan'
-                ? $item->cicilan->where('status_verifikasi', 'disetujui')->sum('nominal_cicilan')
-                : $item->nominal;
+            $item->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
 
-            $item->status_cicilan = $totalCicilan >= $item->nominal ? 'Lunas' : 'Belum Lunas';
+            $buktiPembayaranUrl = null;
+            if ($item->bukti_pembayaran) {
+                $buktiPembayaranUrl = Storage::url($item->bukti_pembayaran);
+            }
+            $item->bukti_pembayaran_url = $buktiPembayaranUrl;
             return $item;
         });
 
@@ -174,7 +165,7 @@ class PembayaranController extends Controller
      */
     public function create()
     {
-        //
+
     }
 
     /**
@@ -183,52 +174,55 @@ class PembayaranController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-        public function store(Request $request)
+    public function store(Request $request)
     {
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'siswa_id' => 'required|exists:siswa,id',
             'tanggal_pembayaran' => 'nullable|date',
-            'bukti_pembayaran' => 'nullable|string|max:255',
+            'bukti_pembayaran' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'status_rapor' => 'required|string|max:255',
-            'nominal' => 'required|numeric',
+            'nominal' => 'required|numeric|min:0',
             'jenis_pembayaran' => 'nullable|in:pendaftaran baru,daftar ulang',
             'metode_pembayaran' => 'required|in:full,cicilan',
             'status_atribut' => 'nullable|string|max:255',
-            'status_pembayaran' => 'nullable|in:Lunas,Belum Lunas',
-            'status_cicilan' => 'nullable|in:Lunas,Belum Lunas',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors()
+            ], 422);
+        }
 
         DB::beginTransaction();
 
         try {
-            $isFullPayment = $validated['metode_pembayaran'] === 'full';
+            $validatedData = $validator->validated();
 
-            if ($isFullPayment) {
-                $validated['status_pembayaran'] = 'Lunas';
-                $validated['status_cicilan'] = 'Lunas';
+            $isFullPayment = $validatedData['metode_pembayaran'] === 'full';
+            $validatedData['status_pembayaran'] = $isFullPayment ? 'Lunas' : 'Belum Lunas';
+            // $validatedData['status_cicilan'] = $isFullPayment ? 'Lunas' : 'Belum Lunas'; // Default status cicilan
+
+            $isFullPayment = $validatedData['metode_pembayaran'] === 'full';
+            $validatedData['status_pembayaran'] = $isFullPayment ? 'Lunas' : 'Belum Lunas';
+
+            if ($request->hasFile('bukti_pembayaran')) {
+                $path = $request->file('bukti_pembayaran')->store('images', 'public');
+                $validatedData['bukti_pembayaran'] = $path;
+            } else {
+                $validatedData['bukti_pembayaran'] = null;
             }
 
-            logger()->debug('isFullPayment:', ['value' => $isFullPayment]);
-
-            $pembayaran = Pembayaran::create([
-                'siswa_id' => $validated['siswa_id'],
-                'tanggal_pembayaran' => $validated['tanggal_pembayaran'] ?? now(),
-                'bukti_pembayaran' => $validated['bukti_pembayaran'] ?? null,
-                'status_rapor' => $validated['status_rapor'],
-                'status_atribut' => $validated['status_atribut'] ?? null,
-                'nominal' => $validated['nominal'],
-                'jenis_pembayaran' => $validated['jenis_pembayaran'] ?? null,
-                'metode_pembayaran' => $validated['metode_pembayaran'],
-                'status_pembayaran' => $isFullPayment ? 'Lunas' : 'Belum Lunas',
-                'status_cicilan' => $isFullPayment ? 'Lunas' : 'Belum Lunas',
-
-            ]);
+            $pembayaran = Pembayaran::create($validatedData);
 
             DB::commit();
 
+            $pembayaran->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
+            $pembayaran->bukti_pembayaran_url = $pembayaran->bukti_pembayaran ? Storage::url($pembayaran->bukti_pembayaran) : null;
+
             return response()->json([
                 'message' => 'Pembayaran berhasil ditambahkan',
-                'data' => $pembayaran
+                'data' => $pembayaran,
             ], 201);
 
         } catch (\Exception $e) {
@@ -251,19 +245,13 @@ class PembayaranController extends Controller
     {
         $pembayaran = Pembayaran::with(['cicilan', 'siswa'])->findOrFail($id);
 
-        $totalCicilan = $pembayaran->metode_pembayaran === 'cicilan'
-            ? $pembayaran->cicilan->where('status_verifikasi', 'disetujui')->sum('nominal_cicilan')
-            : $pembayaran->nominal;
+        $pembayaran->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
 
-        $statusCicilan = $totalCicilan >= $pembayaran->nominal ? 'Lunas' : 'Belum Lunas';
-
-        // Sinkronisasi status_pembayaran dan status_cicilan
-        if ($pembayaran->status_pembayaran !== 'Lunas' && $statusCicilan === 'Lunas') {
-            $pembayaran->status_pembayaran = 'Lunas';
-            $pembayaran->save();
+        $buktiPembayaranUrl = null;
+        if ($pembayaran->bukti_pembayaran) {
+            $buktiPembayaranUrl = Storage::url($pembayaran->bukti_pembayaran);
         }
-
-        $pembayaran->status_cicilan = $statusCicilan;
+        $pembayaran->bukti_pembayaran_url = $buktiPembayaranUrl;
 
         return response()->json([
             'data' => $pembayaran,
@@ -280,7 +268,7 @@ class PembayaranController extends Controller
      */
     public function edit($id)
     {
-        //
+
     }
 
     /**
@@ -292,44 +280,59 @@ class PembayaranController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $validated = $request->validate([
+        $pembayaran = Pembayaran::findOrFail($id);
+
+        $validator = Validator::make($request->all(), [
+            'siswa_id' => 'required|exists:siswa,id',
             'tanggal_pembayaran' => 'nullable|date',
-            'bukti_pembayaran' => 'nullable|string|max:255',
+            'bukti_pembayaran' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'status_rapor' => 'required|string|max:255',
-            'nominal' => 'required|numeric',
+            'nominal' => 'required|numeric|min:0',
             'jenis_pembayaran' => 'nullable|string|max:255',
             'status_atribut' => 'nullable|string|max:255',
             'metode_pembayaran' => 'sometimes|in:full,cicilan',
         ]);
 
-        $pembayaran = Pembayaran::findOrFail($id);
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors()
+            ], 422);
+        }
 
         DB::beginTransaction();
         try {
-            // Update data dasar
-            $pembayaran->update($validated);
+            $validatedData = $validator->validated();
 
-            // Jika metode pembayaran diubah, update status pembayaran
-            if (isset($validated['metode_pembayaran'])) {
-                $pembayaran->status_pembayaran = $validated['metode_pembayaran'] === 'full'
-                    ? 'Lunas'
-                    : 'Belum Lunas';
-                $pembayaran->save();
-            }
-
-            // Jika nominal diubah, perlu cek ulang status cicilan
-            if (isset($validated['nominal'])) {
-                $totalCicilan = $pembayaran->metode_pembayaran === 'cicilan'
-                    ? $pembayaran->cicilan->where('status_verifikasi', 'disetujui')->sum('nominal_cicilan')
-                    : $pembayaran->nominal;
-
-                if ($totalCicilan >= $pembayaran->nominal) {
-                    $pembayaran->status_pembayaran = 'Lunas';
-                    $pembayaran->save();
+            if ($request->hasFile('bukti_pembayaran')) {
+                if ($pembayaran->bukti_pembayaran && Storage::disk('public')->exists($pembayaran->bukti_pembayaran)) {
+                    Storage::disk('public')->delete($pembayaran->bukti_pembayaran);
                 }
+                $path = $request->file('bukti_pembayaran')->store('images', 'public');
+                $validatedData['bukti_pembayaran'] = $path;
+            } else if ($request->input('bukti_pembayaran') === null || $request->input('bukti_pembayaran') === '') {
+                if ($pembayaran->bukti_pembayaran && Storage::disk('public')->exists($pembayaran->bukti_pembayaran)) {
+                    Storage::disk('public')->delete($pembayaran->bukti_pembayaran);
+                }
+                $validatedData['bukti_pembayaran'] = null;
+            } else {
+                unset($validatedData['bukti_pembayaran']);
             }
 
+            if (isset($validatedData['metode_pembayaran'])) {
+                $pembayaran->metode_pembayaran = $validatedData['metode_pembayaran'];
+
+                $pembayaran->status_pembayaran = $pembayaran->metode_pembayaran === 'full' ? 'Lunas' : 'Belum Lunas';
+                // $pembayaran->status_cicilan = $pembayaran->metode_pembayaran === 'full' ? 'Lunas' : 'Belum Lunas';
+            }
+
+            $pembayaran->fill($validatedData);
+
+            $pembayaran->save();
             DB::commit();
+
+            $pembayaran->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
+            $pembayaran->bukti_pembayaran_url = $pembayaran->bukti_pembayaran ? Storage::url($pembayaran->bukti_pembayaran) : null;
 
             return response()->json([
                 'data' => $pembayaran,
@@ -340,7 +343,7 @@ class PembayaranController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
-                'message' => 'Error: ' . $e->getMessage(),
+                'message' => 'Error saat mengupdate pembayaran: ' . $e->getMessage(),
                 'code' => 500
             ], 500);
         }
@@ -358,7 +361,10 @@ class PembayaranController extends Controller
         try {
             $pembayaran = Pembayaran::findOrFail($id);
 
-            // Hapus cicilan terlebih dahulu jika ada
+            if ($pembayaran->bukti_pembayaran && Storage::disk('public')->exists($pembayaran->bukti_pembayaran)) {
+                Storage::disk('public')->delete($pembayaran->bukti_pembayaran);
+            }
+
             if ($pembayaran->cicilan()->count() > 0) {
                 $pembayaran->cicilan()->delete();
             }
@@ -375,7 +381,7 @@ class PembayaranController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
-                'message' => 'Error: ' . $e->getMessage(),
+                'message' => 'Error saat menghapus pembayaran: ' . $e->getMessage(),
                 'code' => 500
             ], 500);
         }

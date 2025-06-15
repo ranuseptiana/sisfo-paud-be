@@ -23,21 +23,121 @@ class Pembayaran extends Model
         'admin_id'
     ];
 
-    public function getTotalCicilanAttribute()
-    {
-        return $this->cicilan->sum('nominal_cicilan');
-    }
+    protected $casts = [
+        'nominal' => 'float',
+    ];
 
-    public function getStatusCicilanAttribute()
-    {
-        return ($this->total_cicilan >= $this->nominal || $this->status_pembayaran === 'Lunas')
+    protected $appends = ['total_cicilan', 'sisa_pembayaran', 'status_cicilan'];
+
+    // protected static function booted()
+    // {
+    //     parent::booted();
+
+    //     static::creating(function ($pembayaran) {
+    //         $admin = Admin::first();
+    //         if ($admin && is_null($pembayaran->admin_id)) {
+    //             $pembayaran->admin_id = $admin->id;
+    //         }
+
+    //         if ($pembayaran->metode_pembayaran === 'full') {
+    //             $pembayaran->status_pembayaran = 'Lunas';
+    //         } else {
+    //             $pembayaran->status_pembayaran = 'Belum Lunas';
+    //         }
+    //     });
+
+    //     static::saving(function ($pembayaran) {
+    //         if ($pembayaran->metode_pembayaran === 'full') {
+    //             $pembayaran->status_pembayaran = 'Lunas';
+    //         } else {
+    //             if ($pembayaran->sisa_pembayaran <= 0) {
+    //                 $pembayaran->status_pembayaran = 'Lunas';
+    //             } else {
+    //                 $pembayaran->status_pembayaran = 'Belum Lunas';
+    //             }
+    //         }
+    //     });
+    // }
+
+    protected static function booted()
+{
+    parent::booted();
+
+    static::creating(function ($pembayaran) {
+        $admin = Admin::first();
+        if ($admin && is_null($pembayaran->admin_id)) {
+            $pembayaran->admin_id = $admin->id;
+        }
+
+        if ($pembayaran->metode_pembayaran === 'full') {
+            $pembayaran->status_pembayaran = 'Lunas';
+        } else {
+            $pembayaran->status_pembayaran = 'Belum Lunas';
+        }
+    });
+
+    static::updating(function ($pembayaran) {
+        if ($pembayaran->metode_pembayaran === 'full') {
+            $pembayaran->status_pembayaran = 'Lunas';
+        } else {
+            $pembayaran->status_pembayaran = ($pembayaran->total_cicilan >= $pembayaran->nominal)
+                ? 'Lunas'
+                : 'Belum Lunas';
+        }
+    });
+}
+
+protected static function boot()
+{
+    parent::boot();
+
+    static::updated(function ($pembayaran) {
+
+        if ($pembayaran->isDirty('total_cicilan') || $pembayaran->isDirty('nominal')) {
+            if ($pembayaran->total_cicilan >= $pembayaran->nominal) {
+                $pembayaran->status_pembayaran = 'Lunas';
+                $pembayaran->saveQuietly();
+            }
+        }
+    });
+}
+
+public function updatePaymentStatus()
+{
+    if ($this->metode_pembayaran === 'full') {
+        $this->status_pembayaran = 'Lunas';
+    } else {
+        $this->status_pembayaran = ($this->total_cicilan >= $this->nominal)
             ? 'Lunas'
             : 'Belum Lunas';
     }
 
+    $this->save();
+}
+
+    public function getTotalCicilanAttribute()
+    {
+        if ($this->metode_pembayaran === 'full') {
+            return (float) $this->nominal;
+        }
+
+        return (float) $this->cicilan()
+        ->where('status_verifikasi', 'disetujui')
+        ->sum('nominal_cicilan');
+    }
+
+    public function getStatusCicilanAttribute()
+    {
+        if ($this->metode_pembayaran === 'full') {
+            return 'Lunas';
+        }
+
+        return ($this->total_cicilan >= $this->nominal) ? 'Lunas' : 'Belum Lunas';
+    }
+
     public function getSisaPembayaranAttribute()
     {
-        return max(0, $this->nominal - $this->total_cicilan);
+        return max(0.0, (float) $this->nominal - (float) $this->total_cicilan);
     }
 
     public $timestamps = false;
@@ -46,7 +146,6 @@ class Pembayaran extends Model
         return $this->belongsTo(Siswa::class, 'siswa_id');
     }
 
-    // Relasi ke tabel admin
     public function admin()
     {
         return $this->belongsTo(Admin::class, 'admin_id');
@@ -57,31 +156,5 @@ class Pembayaran extends Model
         return $this->hasMany(Cicilan::class);
     }
 
-    protected static function booted()
-    {
-        parent::booted();
 
-        static::creating(function ($pembayaran) {
-            $admin = Admin::first();
-            if ($admin && is_null($pembayaran->admin_id)) {
-                $pembayaran->admin_id = $admin->id;
-            }
-
-            if (isset($pembayaran->isCicilan) && !$pembayaran->isCicilan) {
-                $pembayaran->status_pembayaran = 'Lunas';
-            } else {
-                $pembayaran->status_pembayaran = 'Belum Lunas';
-            }
-        });
-
-        static::updating(function ($pembayaran) {
-            $totalCicilan = $pembayaran->cicilan()
-                ->where('status_verifikasi', 'disetujui')
-                ->sum('nominal_cicilan');
-
-            $pembayaran->status_pembayaran = ($totalCicilan >= $pembayaran->nominal)
-                ? 'Lunas'
-                : 'Belum Lunas';
-        });
-    }
 }

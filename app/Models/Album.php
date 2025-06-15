@@ -14,6 +14,8 @@ class Album extends Model
     protected $fillable = [
         'nama_album',
         'deskripsi',
+        'tanggal_kegiatan', // Tambahkan
+        'lokasi_kegiatan',  // Tambahkan
         'photo_cover'
     ];
 
