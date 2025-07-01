@@ -23,13 +23,21 @@ use App\Http\Controllers\TahunAjaranController;
 |--------------------------------------------------------------------------
 */
 
+Route::get('/users', [UserController::class, 'index']);
 Route::resource('admin', AdminController::class);
 Route::resource('kelas', KelasController::class);
 Route::resource('guru', GuruController::class);
+Route::get('orangtua/export', [OrangtuaController::class, 'exportOrangtua']);
 Route::resource('orangtua', OrangtuaController::class);
 Route::resource('siswa', SiswaController::class);
-Route::resource('relasikelas', RelasiKelasController::class);
+// Perbaikan urutan route untuk menghindari konflik
+Route::get('pembayaran/export', [PembayaranController::class, 'exportPembayaran']);
+Route::get('pembayaran', [PembayaranController::class, 'getPembayaran']);
 Route::resource('pembayaran', PembayaranController::class);
+// Route::get('pembayaran', [PembayaranController::class, 'getPembayaran']);
+Route::resource('relasikelas', RelasiKelasController::class);
+//Route::get('pembayaran/export', [PembayaranController::class, 'exportPembayaran']);
+//Route::resource('pembayaran', PembayaranController::class);
 Route::get('siswa/{idSiswa}/pembayaran/', [PembayaranController::class, 'showByPembayaranIdSiswa']);
 Route::resource('cicilan', CicilanController::class);
 Route::get('/cicilan/pembayaran/{id}', [CicilanController::class, 'showByPembayaranId']);
@@ -53,5 +61,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/checkBayar/{idSiswa}', [PembayaranController::class, 'showByPembayaranIdSiswa']);
         Route::get('/pembayaran/{idSiswa}/{jenis}', [PembayaranController::class, 'showByJenisPembayaran'])
             ->where('jenis', 'pendaftaran_baru|daftar_ulang');
+        Route::get('/export', [SiswaController::class, 'exportSiswa']);
     });
 });

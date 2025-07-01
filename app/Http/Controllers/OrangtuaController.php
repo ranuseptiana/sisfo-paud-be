@@ -4,9 +4,76 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Orangtua;
+use Illuminate\Support\Facades\DB;
 
 class OrangtuaController extends Controller
 {
+    public function exportOrangtua(Request $request)
+{
+    try {
+        // Get selected columns from request
+        $selectedColumns = $request->input('columns', []);
+
+        // Ensure columns is always an array
+        if (!is_array($selectedColumns)) {
+            $selectedColumns = is_string($selectedColumns) ? explode(',', $selectedColumns) : [];
+        }
+
+        // Allowed columns with their database names
+        $allowedColumns = [
+            'no_kk', 'nik_ayah', 'nama_ayah', 'pekerjaan_ayah', 'penghasilan_ayah',
+            'nik_ibu', 'nama_ibu', 'pekerjaan_ibu', 'penghasilan_ibu',
+            'no_telp', 'pendidikan_ayah', 'pendidikan_ibu', 'tahun_lahir_ayah',
+            'tahun_lahir_ibu'
+        ];
+
+        // Filter only allowed columns
+        $filteredColumns = array_filter($selectedColumns, function($col) use ($allowedColumns) {
+            return in_array($col, $allowedColumns);
+        });
+
+        // If no columns selected, use all allowed columns
+        if (empty($filteredColumns)) {
+            $filteredColumns = $allowedColumns;
+        }
+
+        // Ensure no_kk is always included
+        if (!in_array('no_kk', $filteredColumns)) {
+            array_unshift($filteredColumns, 'no_kk');
+        }
+
+        // Get the data
+        $data = DB::table('orangtua')
+            ->select($filteredColumns)
+            ->get()
+            ->map(function($item) {
+                // Convert to array and format fields
+                $itemArray = (array)$item;
+                // Format any fields if needed
+                if (isset($itemArray['tahun_lahir_ayah'])) {
+                    $itemArray['tahun_lahir_ayah'] = (string)$itemArray['tahun_lahir_ayah'];
+                }
+                if (isset($itemArray['tahun_lahir_ibu'])) {
+                    $itemArray['tahun_lahir_ibu'] = (string)$itemArray['tahun_lahir_ibu'];
+                }
+                return $itemArray;
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+            'message' => 'Data berhasil diambil'
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Export error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Terjadi kesalahan saat mengekspor data: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
     /**
      * Display a listing of the resource.
      *

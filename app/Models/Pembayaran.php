@@ -29,36 +29,6 @@ class Pembayaran extends Model
 
     protected $appends = ['total_cicilan', 'sisa_pembayaran', 'status_cicilan'];
 
-    // protected static function booted()
-    // {
-    //     parent::booted();
-
-    //     static::creating(function ($pembayaran) {
-    //         $admin = Admin::first();
-    //         if ($admin && is_null($pembayaran->admin_id)) {
-    //             $pembayaran->admin_id = $admin->id;
-    //         }
-
-    //         if ($pembayaran->metode_pembayaran === 'full') {
-    //             $pembayaran->status_pembayaran = 'Lunas';
-    //         } else {
-    //             $pembayaran->status_pembayaran = 'Belum Lunas';
-    //         }
-    //     });
-
-    //     static::saving(function ($pembayaran) {
-    //         if ($pembayaran->metode_pembayaran === 'full') {
-    //             $pembayaran->status_pembayaran = 'Lunas';
-    //         } else {
-    //             if ($pembayaran->sisa_pembayaran <= 0) {
-    //                 $pembayaran->status_pembayaran = 'Lunas';
-    //             } else {
-    //                 $pembayaran->status_pembayaran = 'Belum Lunas';
-    //             }
-    //         }
-    //     });
-    // }
-
     protected static function booted()
 {
     parent::booted();

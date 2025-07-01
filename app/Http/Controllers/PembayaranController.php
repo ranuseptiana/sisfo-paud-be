@@ -12,9 +12,138 @@ use App\Models\Admin;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class PembayaranController extends Controller
 {
+    public function exportPembayaran(Request $request)
+{
+    try {
+        $request->validate([
+            'kelas_ids' => 'sometimes|array',
+            'kelas_ids.*' => 'integer',
+            'metode_pembayaran' => 'sometimes|string',
+            'status_pembayaran' => 'sometimes|string',
+            'status_cicilan' => 'sometimes|string',
+            'tahun_awal' => 'sometimes|integer',
+            'tahun_akhir' => 'sometimes|integer'
+        ]);
+
+        $query = Pembayaran::with(['siswa.kelas', 'siswa.tahunAjaran',  'cicilan' => function($q) {
+            $q->where('status_verifikasi', 'disetujui')
+              ->orderBy('tanggal_cicilan', 'asc');
+        }])
+            ->when($request->filled('kelas_ids'), function ($q) use ($request) {
+                $kelasIds = is_array($request->kelas_ids) ? $request->kelas_ids : explode(',', $request->kelas_ids);
+                $q->whereHas('siswa', function ($s) use ($kelasIds) {
+                    $s->whereIn('kelas_id', $kelasIds);
+                });
+            })
+            ->when($request->filled('metode_pembayaran'), function ($q) use ($request) {
+                $q->where('metode_pembayaran', $request->metode_pembayaran);
+            })
+            ->when($request->filled('status_pembayaran'), function ($q) use ($request) {
+                $q->where('status_pembayaran', $request->status_pembayaran);
+            })
+            ->when($request->filled('status_cicilan'), function ($q) use ($request) {
+                $q->where('status_cicilan', $request->status_cicilan);
+            })
+            ->when($request->filled('tahun_awal') && $request->filled('tahun_akhir'), function ($q) use ($request) {
+                $q->whereHas('siswa.tahunAjaran', function ($ta) use ($request) {
+                    $ta->whereBetween(DB::raw("SUBSTRING_INDEX(tahun, '/', 1)"), [$request->tahun_awal, $request->tahun_akhir]);
+                });
+            });
+
+        $data = $query->get()->map(function ($item) {
+            $item->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
+
+            $buktiPembayaranUrl = null;
+            if ($item->bukti_pembayaran) {
+                $buktiPembayaranUrl = Storage::url($item->bukti_pembayaran);
+            }
+
+            return [
+                'id' => $item->id,
+                'siswa_id' => $item->siswa_id,
+                'nisn' => $item->siswa->nisn ?? '-',
+                'nama_siswa' => $item->siswa->nama_siswa ?? $item->nama_siswa ?? '-',
+                'kelas_nama' => $item->siswa->kelas->nama_kelas ?? '-',
+                'tahun_ajaran' => $item->siswa->tahunAjaran->tahun ?? '-',
+                'tanggal_bayar' => $item->tanggal_pembayaran,
+                'jenis_pembayaran' => $item->jenis_pembayaran,
+                'metode_pembayaran' => $item->metode_pembayaran,
+                'status_pembayaran' => $item->status_pembayaran,
+                'status_rapor' => $item->status_rapor,
+                'status_atribut' => $item->status_atribut,
+                'status_cicilan' => $item->status_cicilan,
+                'nominal' => $item->nominal,
+                'total_cicilan' => $item->total_cicilan,
+                'sisa_pembayaran' => $item->sisa_pembayaran,
+                'bukti_pembayaran' => $item->bukti_pembayaran,
+                'cicilan' => $item->cicilan
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+            'message' => 'Data pembayaran berhasil difilter'
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Export Pembayaran Error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Terjadi kesalahan saat mengambil data pembayaran: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+public function getPembayaran(Request $request)
+{
+    $query = Pembayaran::with([
+        'siswa:id,nisn,nama_siswa,tahun_ajaran_id,kelas_id',
+        'siswa.tahunAjaran:id,tahun',
+        'siswa.kelas:id,nama_kelas',
+        'cicilan'
+    ]);
+
+    $query->when($request->filled('kelas_ids'), function ($q) use ($request) {
+        $kelasIds = is_array($request->kelas_ids) ? $request->kelas_ids : explode(',', $request->kelas_ids);
+        $q->whereHas('siswa', function ($sub) use ($kelasIds) {
+            $sub->whereIn('kelas_id', $kelasIds);
+        });
+    });
+
+    $query->when($request->filled('status_pembayaran'), function ($q) use ($request) {
+        $q->where('status_pembayaran', $request->status_pembayaran);
+    });
+
+    $query->when($request->filled('metode_pembayaran'), function ($q) use ($request) {
+        $q->where('metode_pembayaran', $request->metode_pembayaran);
+    });
+
+    $query->when($request->filled('tahun_ajaran_dari') && $request->filled('tahun_ajaran_sampai'), function ($q) use ($request) {
+        $q->whereHas('siswa.tahunAjaran', function ($sub) use ($request) {
+            $sub->whereRaw("CAST(SUBSTRING_INDEX(tahun, '/', 1) AS UNSIGNED) >= ?", [$request->tahun_ajaran_dari])
+                ->whereRaw("CAST(SUBSTRING_INDEX(tahun, '/', -1) AS UNSIGNED) <= ?", [$request->tahun_ajaran_sampai]);
+        });
+    });
+
+    $result = $query->get();
+
+    if ($request->filled('status_cicilan')) {
+        $result = $result->filter(function ($item) use ($request) {
+            $item->append(['status_cicilan']);
+            return strtolower($item->status_cicilan) === strtolower($request->status_cicilan);
+        })->values();
+    }
+
+    return response()->json([
+        'success' => true,
+        'data' => $result
+    ]);
+}
+
     /**
      * Display the specified payment with installments for student.
      *
@@ -176,20 +305,44 @@ class PembayaranController extends Controller
      */
     public function store(Request $request)
     {
+        $siswa = Siswa::find($request->siswa_id);
+        $tahunAjaranId = $siswa ? $siswa->tahun_ajaran_id : null;
+
         $validator = Validator::make($request->all(), [
-            'siswa_id' => 'required|exists:siswa,id',
+            'siswa_id' => [
+                'required',
+                'exists:siswa,id',
+                // Aturan unique kustom untuk mencegah duplikasi
+                Rule::unique('pembayaran')->where(function ($query) use ($request, $tahunAjaranId) {
+                    return $query->where('siswa_id', $request->siswa_id)
+                                 ->where('jenis_pembayaran', $request->jenis_pembayaran);
+                                 // Jika jenis pembayaran terkait dengan tahun ajaran (misal: pendaftaran baru per tahun ajaran)
+                                 // Anda perlu memastikan tahun_ajaran_id juga unik.
+                                 // Namun, karena jenis_pembayaran 'pendaftaran baru' harusnya hanya sekali seumur hidup siswa,
+                                 // maka siswa_id dan jenis_pembayaran saja sudah cukup.
+                                 // Jika ada jenis pembayaran lain yang berulang setiap tahun (misal: SPP bulanan),
+                                 // maka perlu kriteria unik yang berbeda.
+                                 // Contoh jika mau menyertakan tahun_ajaran_id dari siswa:
+                                 // ->whereHas('siswa', function ($q) use ($tahunAjaranId) {
+                                 //     $q->where('tahun_ajaran_id', $tahunAjaranId);
+                                 // });
+                })->whereNotNull('jenis_pembayaran') // Pastikan hanya berlaku untuk jenis_pembayaran yang tidak null
+            ],
             'tanggal_pembayaran' => 'nullable|date',
             'bukti_pembayaran' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'status_rapor' => 'required|string|max:255',
             'nominal' => 'required|numeric|min:0',
-            'jenis_pembayaran' => 'nullable|in:pendaftaran baru,daftar ulang',
+            'jenis_pembayaran' => 'nullable|in:pendaftaran baru,daftar ulang', // Ubah ini jadi 'required' jika selalu ada
             'metode_pembayaran' => 'required|in:full,cicilan',
             'status_atribut' => 'nullable|string|max:255',
+        ], [
+            // Pesan kustom untuk validasi duplikasi
+            'siswa_id.unique' => 'Pembayaran dengan jenis ini untuk siswa yang sama sudah ada.',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'message' => 'Validasi gagal',
+                'message' => 'Duplikasi Data',
                 'errors' => $validator->errors()
             ], 422);
         }
@@ -201,10 +354,13 @@ class PembayaranController extends Controller
 
             $isFullPayment = $validatedData['metode_pembayaran'] === 'full';
             $validatedData['status_pembayaran'] = $isFullPayment ? 'Lunas' : 'Belum Lunas';
+            // Baris ini ($validatedData['status_cicilan']) saya komentar karena status cicilan seharusnya dihitung dinamis
+            // berdasarkan cicilan yang sudah masuk vs nominal total, bukan diset statis di sini.
             // $validatedData['status_cicilan'] = $isFullPayment ? 'Lunas' : 'Belum Lunas'; // Default status cicilan
 
-            $isFullPayment = $validatedData['metode_pembayaran'] === 'full';
-            $validatedData['status_pembayaran'] = $isFullPayment ? 'Lunas' : 'Belum Lunas';
+            // Baris ini duplikasi, bisa dihapus
+            // $isFullPayment = $validatedData['metode_pembayaran'] === 'full';
+            // $validatedData['status_pembayaran'] = $isFullPayment ? 'Lunas' : 'Belum Lunas';
 
             if ($request->hasFile('bukti_pembayaran')) {
                 $path = $request->file('bukti_pembayaran')->store('images', 'public');
@@ -233,6 +389,64 @@ class PembayaranController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+
+        // $validator = Validator::make($request->all(), [
+        //     'siswa_id' => 'required|exists:siswa,id',
+        //     'tanggal_pembayaran' => 'nullable|date',
+        //     'bukti_pembayaran' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+        //     'status_rapor' => 'required|string|max:255',
+        //     'nominal' => 'required|numeric|min:0',
+        //     'jenis_pembayaran' => 'nullable|in:pendaftaran baru,daftar ulang',
+        //     'metode_pembayaran' => 'required|in:full,cicilan',
+        //     'status_atribut' => 'nullable|string|max:255',
+        // ]);
+
+        // if ($validator->fails()) {
+        //     return response()->json([
+        //         'message' => 'Validasi gagal',
+        //         'errors' => $validator->errors()
+        //     ], 422);
+        // }
+
+        // DB::beginTransaction();
+
+        // try {
+        //     $validatedData = $validator->validated();
+
+        //     $isFullPayment = $validatedData['metode_pembayaran'] === 'full';
+        //     $validatedData['status_pembayaran'] = $isFullPayment ? 'Lunas' : 'Belum Lunas';
+        //     // $validatedData['status_cicilan'] = $isFullPayment ? 'Lunas' : 'Belum Lunas'; // Default status cicilan
+
+        //     $isFullPayment = $validatedData['metode_pembayaran'] === 'full';
+        //     $validatedData['status_pembayaran'] = $isFullPayment ? 'Lunas' : 'Belum Lunas';
+
+        //     if ($request->hasFile('bukti_pembayaran')) {
+        //         $path = $request->file('bukti_pembayaran')->store('images', 'public');
+        //         $validatedData['bukti_pembayaran'] = $path;
+        //     } else {
+        //         $validatedData['bukti_pembayaran'] = null;
+        //     }
+
+        //     $pembayaran = Pembayaran::create($validatedData);
+
+        //     DB::commit();
+
+        //     $pembayaran->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
+        //     $pembayaran->bukti_pembayaran_url = $pembayaran->bukti_pembayaran ? Storage::url($pembayaran->bukti_pembayaran) : null;
+
+        //     return response()->json([
+        //         'message' => 'Pembayaran berhasil ditambahkan',
+        //         'data' => $pembayaran,
+        //     ], 201);
+
+        // } catch (\Exception $e) {
+        //     DB::rollBack();
+
+        //     return response()->json([
+        //         'message' => 'Terjadi kesalahan saat menyimpan data pembayaran',
+        //         'error' => $e->getMessage()
+        //     ], 500);
+        // }
     }
 
     /**
