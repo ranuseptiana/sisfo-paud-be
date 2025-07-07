@@ -110,7 +110,7 @@ public function updatePaymentStatus()
         return max(0.0, (float) $this->nominal - (float) $this->total_cicilan);
     }
 
-    public $timestamps = false;
+    public $timestamps = true;
 
     public function siswa() {
         return $this->belongsTo(Siswa::class, 'siswa_id');

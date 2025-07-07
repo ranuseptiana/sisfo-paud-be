@@ -20,7 +20,7 @@ class Cicilan extends Model
         'admin_id'
     ];
 
-    public $timestamps = false;
+    public $timestamps = true;
 
     public function pembayaran() {
         return $this->belongsTo(Pembayaran::class, 'pembayaran_id');
