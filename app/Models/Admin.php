@@ -10,18 +10,17 @@ class Admin extends Authenticatable
 {
     use HasFactory, HasApiTokens;
 
-    protected $table = 'admin'; // Nama tabel
-    protected $fillable = ['username', 'password']; // Kolom yang bisa diisi
+    protected $table = 'admin';
+    protected $fillable = ['username', 'password'];
 
     protected $hidden = [
-        'password', // Pastikan ini benar
+        'password',
     ];
 
-    // Relasi ke tabel kelas
     public function kelas()
     {
         return $this->hasMany(Kelas::class, 'admin_id');
     }
 
-    public $timestamps = false; // Menonaktifkan timestamps
+    public $timestamps = false;
 }

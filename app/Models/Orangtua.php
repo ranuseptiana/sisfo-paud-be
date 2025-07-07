@@ -27,26 +27,22 @@ class Orangtua extends Model
         'no_telp'
     ];
 
-    // Relasi ke tabel admin
     public function admin()
     {
         return $this->belongsTo(Admin::class, 'admin_id');
     }
 
-    public $timestamps = false; // Menonaktifkan timestamps
+    public $timestamps = false;
 
     protected static function booted()
     {
         static::creating(function ($orangtua) {
-            // Cek apakah admin pertama ada
             $admin = Admin::first();
             if ($admin) {
-                // Isi admin_id dengan admin pertama jika belum diisi
                 if (is_null($orangtua->admin_id)) {
                     $orangtua->admin_id = $admin->id;
                 }
             } else {
-                // Jika tidak ada admin, beri pesan atau buat logika lain
                 throw new \Exception("Tidak ada admin yang terdaftar!");
             }
         });

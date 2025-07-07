@@ -312,31 +312,19 @@ public function getPembayaran(Request $request)
             'siswa_id' => [
                 'required',
                 'exists:siswa,id',
-                // Aturan unique kustom untuk mencegah duplikasi
                 Rule::unique('pembayaran')->where(function ($query) use ($request, $tahunAjaranId) {
                     return $query->where('siswa_id', $request->siswa_id)
                                  ->where('jenis_pembayaran', $request->jenis_pembayaran);
-                                 // Jika jenis pembayaran terkait dengan tahun ajaran (misal: pendaftaran baru per tahun ajaran)
-                                 // Anda perlu memastikan tahun_ajaran_id juga unik.
-                                 // Namun, karena jenis_pembayaran 'pendaftaran baru' harusnya hanya sekali seumur hidup siswa,
-                                 // maka siswa_id dan jenis_pembayaran saja sudah cukup.
-                                 // Jika ada jenis pembayaran lain yang berulang setiap tahun (misal: SPP bulanan),
-                                 // maka perlu kriteria unik yang berbeda.
-                                 // Contoh jika mau menyertakan tahun_ajaran_id dari siswa:
-                                 // ->whereHas('siswa', function ($q) use ($tahunAjaranId) {
-                                 //     $q->where('tahun_ajaran_id', $tahunAjaranId);
-                                 // });
-                })->whereNotNull('jenis_pembayaran') // Pastikan hanya berlaku untuk jenis_pembayaran yang tidak null
+                })->whereNotNull('jenis_pembayaran')
             ],
             'tanggal_pembayaran' => 'nullable|date',
             'bukti_pembayaran' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'status_rapor' => 'required|string|max:255',
             'nominal' => 'required|numeric|min:0',
-            'jenis_pembayaran' => 'nullable|in:pendaftaran baru,daftar ulang', // Ubah ini jadi 'required' jika selalu ada
+            'jenis_pembayaran' => 'nullable|in:pendaftaran baru,daftar ulang',
             'metode_pembayaran' => 'required|in:full,cicilan',
             'status_atribut' => 'nullable|string|max:255',
         ], [
-            // Pesan kustom untuk validasi duplikasi
             'siswa_id.unique' => 'Pembayaran dengan jenis ini untuk siswa yang sama sudah ada.',
         ]);
 
@@ -354,13 +342,6 @@ public function getPembayaran(Request $request)
 
             $isFullPayment = $validatedData['metode_pembayaran'] === 'full';
             $validatedData['status_pembayaran'] = $isFullPayment ? 'Lunas' : 'Belum Lunas';
-            // Baris ini ($validatedData['status_cicilan']) saya komentar karena status cicilan seharusnya dihitung dinamis
-            // berdasarkan cicilan yang sudah masuk vs nominal total, bukan diset statis di sini.
-            // $validatedData['status_cicilan'] = $isFullPayment ? 'Lunas' : 'Belum Lunas'; // Default status cicilan
-
-            // Baris ini duplikasi, bisa dihapus
-            // $isFullPayment = $validatedData['metode_pembayaran'] === 'full';
-            // $validatedData['status_pembayaran'] = $isFullPayment ? 'Lunas' : 'Belum Lunas';
 
             if ($request->hasFile('bukti_pembayaran')) {
                 $path = $request->file('bukti_pembayaran')->store('images', 'public');
@@ -389,64 +370,6 @@ public function getPembayaran(Request $request)
                 'error' => $e->getMessage()
             ], 500);
         }
-
-        // $validator = Validator::make($request->all(), [
-        //     'siswa_id' => 'required|exists:siswa,id',
-        //     'tanggal_pembayaran' => 'nullable|date',
-        //     'bukti_pembayaran' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-        //     'status_rapor' => 'required|string|max:255',
-        //     'nominal' => 'required|numeric|min:0',
-        //     'jenis_pembayaran' => 'nullable|in:pendaftaran baru,daftar ulang',
-        //     'metode_pembayaran' => 'required|in:full,cicilan',
-        //     'status_atribut' => 'nullable|string|max:255',
-        // ]);
-
-        // if ($validator->fails()) {
-        //     return response()->json([
-        //         'message' => 'Validasi gagal',
-        //         'errors' => $validator->errors()
-        //     ], 422);
-        // }
-
-        // DB::beginTransaction();
-
-        // try {
-        //     $validatedData = $validator->validated();
-
-        //     $isFullPayment = $validatedData['metode_pembayaran'] === 'full';
-        //     $validatedData['status_pembayaran'] = $isFullPayment ? 'Lunas' : 'Belum Lunas';
-        //     // $validatedData['status_cicilan'] = $isFullPayment ? 'Lunas' : 'Belum Lunas'; // Default status cicilan
-
-        //     $isFullPayment = $validatedData['metode_pembayaran'] === 'full';
-        //     $validatedData['status_pembayaran'] = $isFullPayment ? 'Lunas' : 'Belum Lunas';
-
-        //     if ($request->hasFile('bukti_pembayaran')) {
-        //         $path = $request->file('bukti_pembayaran')->store('images', 'public');
-        //         $validatedData['bukti_pembayaran'] = $path;
-        //     } else {
-        //         $validatedData['bukti_pembayaran'] = null;
-        //     }
-
-        //     $pembayaran = Pembayaran::create($validatedData);
-
-        //     DB::commit();
-
-        //     $pembayaran->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
-        //     $pembayaran->bukti_pembayaran_url = $pembayaran->bukti_pembayaran ? Storage::url($pembayaran->bukti_pembayaran) : null;
-
-        //     return response()->json([
-        //         'message' => 'Pembayaran berhasil ditambahkan',
-        //         'data' => $pembayaran,
-        //     ], 201);
-
-        // } catch (\Exception $e) {
-        //     DB::rollBack();
-
-        //     return response()->json([
-        //         'message' => 'Terjadi kesalahan saat menyimpan data pembayaran',
-        //         'error' => $e->getMessage()
-        //     ], 500);
-        // }
     }
 
     /**

@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\DB;
 
 class KelasController extends Controller
 {
-    // Menghitung jumlah siswa per kelas
     public function jumlahSiswaPerKelas($id)
     {
         $kelas = Kelas::withCount('siswa')->find($id);
@@ -136,21 +135,17 @@ class KelasController extends Controller
         ]);
     }
 
-
-    // Menyimpan data kelas baru
     public function store(Request $request)
     {
         $validated = $request->validate([
             'nama_kelas' => 'required|string|max:255',
-            'guru_id' => 'required|exists:guru,id' // Validasi guru_id
+            'guru_id' => 'required|exists:guru,id'
         ]);
 
         DB::beginTransaction();
         try {
-            // Buat kelas
             $kelas = Kelas::create(['nama_kelas' => $validated['nama_kelas']]);
 
-            // Buat relasi dengan guru
             RelasiKelas::create([
                 'kelas_id' => $kelas->id,
                 'guru_id' => $validated['guru_id']
@@ -172,7 +167,6 @@ class KelasController extends Controller
         }
     }
 
-    // Update data kelas
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
@@ -185,7 +179,6 @@ class KelasController extends Controller
             $kelas = Kelas::findOrFail($id);
             $kelas->update(['nama_kelas' => $validated['nama_kelas']]);
 
-            // Update relasi guru (hapus yang lama, buat yang baru)
             RelasiKelas::where('kelas_id', $id)->delete();
             RelasiKelas::create([
                 'kelas_id' => $id,
@@ -207,24 +200,23 @@ class KelasController extends Controller
             ], 500);
         }
     }
-    // Menghapus data kelas
+
     public function destroy($id)
-{
-    $kelas = Kelas::withCount('siswa')->findOrFail($id);
+    {
+        $kelas = Kelas::withCount('siswa')->findOrFail($id);
 
-    if ($kelas->siswa_count > 0) {
+        if ($kelas->siswa_count > 0) {
+            return response()->json([
+                'message' => 'Cannot delete class, students are still registered in this class',
+                'code' => 400,
+            ], 400);
+        }
+
+        $kelas->delete();
+
         return response()->json([
-            'message' => 'Cannot delete class, students are still registered in this class',
-            'code' => 400,
-        ], 400);
+            'message' => 'Class successfully deleted',
+            'code' => 200,
+        ]);
     }
-
-    $kelas->delete();
-
-    return response()->json([
-        'message' => 'Class successfully deleted',
-        'code' => 200,
-    ]);
-}
-
 }

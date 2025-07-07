@@ -20,13 +20,11 @@ class SiswaController extends Controller
             $needsKelasJoin = false;
             $needsTahunAjaranJoin = false;
 
-            // Daftar kolom yang diizinkan
             $allowedColumns = [
                 'id', 'nisn', 'nipd', 'nama_siswa', 'nik_siswa', 'tanggal_lahir',
                 'tempat_lahir', 'jenis_kelamin', 'agama', 'status', 'no_kk'
             ];
 
-            // Proses kolom yang diminta
             foreach ($selectedColumns as $col) {
                 if ($col === 'kelas_nama' || $col === 'rombel') {
                     $needsKelasJoin = true;
@@ -39,7 +37,6 @@ class SiswaController extends Controller
                 }
             }
 
-            // PERBAIKAN: Jika tidak ada kolom yang dipilih, ambil SEMUA kolom
             if (empty($columnsToSelect)) {
                 $columnsToSelect = [
                     'siswa.id',
@@ -47,12 +44,12 @@ class SiswaController extends Controller
                     'siswa.nipd',
                     'siswa.nama_siswa',
                     'siswa.nik_siswa',
-                    'siswa.tanggal_lahir',      // TAMBAH INI
-                    'siswa.tempat_lahir',       // TAMBAH INI
-                    'siswa.jenis_kelamin',      // TAMBAH INI
-                    'siswa.agama',              // TAMBAH INI
-                    'siswa.status',             // TAMBAH INI
-                    'siswa.no_kk',              // TAMBAH INI
+                    'siswa.tanggal_lahir',
+                    'siswa.tempat_lahir',
+                    'siswa.jenis_kelamin',
+                    'siswa.agama',
+                    'siswa.status',
+                    'siswa.no_kk',
                     'kelas.nama_kelas as kelas_nama',
                     'tahun_ajaran.tahun as tahun_ajaran_nama',
                     'siswa.anak_ke'
@@ -74,7 +71,6 @@ class SiswaController extends Controller
                 $query->whereIn('siswa.kelas_id', $kelasIds);
             }
 
-            // Tambahkan join jika diperlukan
             if ($needsKelasJoin) {
                 $query->leftJoin('kelas', 'siswa.kelas_id', '=', 'kelas.id');
             }
@@ -83,9 +79,7 @@ class SiswaController extends Controller
                 $query->leftJoin('tahun_ajaran', 'siswa.tahun_ajaran_id', '=', 'tahun_ajaran.id');
             }
 
-            // Ambil data
             $data = $query->get()->map(function($item) {
-                // Format tanggal lahir jika ada dan valid
                 if (isset($item->tanggal_lahir) && $item->tanggal_lahir) {
                     try {
                         $item->tanggal_lahir = \Carbon\Carbon::parse($item->tanggal_lahir)->format('Y-m-d');

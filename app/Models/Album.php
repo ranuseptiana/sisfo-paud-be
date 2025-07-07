@@ -14,12 +14,11 @@ class Album extends Model
     protected $fillable = [
         'nama_album',
         'deskripsi',
-        'tanggal_kegiatan', // Tambahkan
-        'lokasi_kegiatan',  // Tambahkan
+        'tanggal_kegiatan',
+        'lokasi_kegiatan',
         'photo_cover'
     ];
 
-    // Relasi ke tabel admin
     public function admin()
     {
         return $this->belongsTo(Admin::class, 'admin_id');
@@ -28,15 +27,12 @@ class Album extends Model
     protected static function booted()
     {
         static::creating(function ($album) {
-            // Cek apakah admin pertama ada
             $admin = Admin::first();
             if ($admin) {
-                // Isi admin_id dengan admin pertama jika belum diisi
                 if (is_null($album->admin_id)) {
                     $album->admin_id = $admin->id;
                 }
             } else {
-                // Jika tidak ada admin, beri pesan atau buat logika lain
                 throw new \Exception("Tidak ada admin yang terdaftar!");
             }
         });

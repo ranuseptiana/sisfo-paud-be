@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Album;
-use App\Models\Admin; // Pastikan ini ada jika kamu menggunakan Admin
+use App\Models\Admin;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str; // Tambahkan ini
-use Illuminate\Support\Facades\Log; // Tambahkan ini untuk logging
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 class AlbumController extends Controller
 {
@@ -39,23 +39,21 @@ class AlbumController extends Controller
      */
     public function store(Request $request)
     {
-        // Log request untuk debugging
         Log::info('Store Album Request', $request->all());
 
         $validated = $request->validate([
             'nama_album' => 'required|string|max:255',
             'deskripsi' => 'required|string|max:255',
-            'tanggal_kegiatan' => 'nullable|date', // Tambahkan validasi
-            'lokasi_kegiatan' => 'nullable|string|max:255', // Tambahkan validasi
+            'tanggal_kegiatan' => 'nullable|date',
+            'lokasi_kegiatan' => 'nullable|string|max:255',
             'photo_cover' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ]);
 
-        // Generate nama folder dari nama album
         $folderName = Str::slug($request->nama_album);
         $path = $request->file('photo_cover')->store("images/album/{$folderName}", 'public');
 
         $data = $validated;
-        $data['photo_cover'] = $path; // Simpan path ke database
+        $data['photo_cover'] = $path;
 
         $album = Album::create($data);
 
@@ -92,7 +90,6 @@ class AlbumController extends Controller
      */
     public function update(Request $request, $id)
     {
-        // Log request untuk debugging
         Log::info('Update Album Request', ['id' => $id, 'data' => $request->all()]);
 
         $album = Album::findOrFail($id);
@@ -100,24 +97,19 @@ class AlbumController extends Controller
         $validated = $request->validate([
             'nama_album' => 'required|string|max:255',
             'deskripsi' => 'required|string|max:255',
-            'tanggal_kegiatan' => 'nullable|date', // Tambahkan validasi
-            'lokasi_kegiatan' => 'nullable|string|max:255', // Tambahkan validasi
+            'tanggal_kegiatan' => 'nullable|date',
+            'lokasi_kegiatan' => 'nullable|string|max:255',
             'photo_cover' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ]);
 
         $data = $validated;
 
-        // Proses upload file jika ada
         if ($request->hasFile('photo_cover')) {
-            // Hapus foto lama jika ada
             if ($album->photo_cover) {
-                // Pastikan path sudah benar relatif terhadap storage/app/public
                 Storage::disk('public')->delete($album->photo_cover);
             }
 
-            // Generate nama folder dari nama album yang baru (atau yang lama jika tidak berubah)
-            // Penting: Jika nama_album berubah, folder juga akan berubah
-            $folderName = Str::slug($request->nama_album); // Gunakan nama album dari request
+            $folderName = Str::slug($request->nama_album);
             $path = $request->file('photo_cover')->store("images/album/{$folderName}", 'public');
             $data['photo_cover'] = $path;
         }
@@ -148,7 +140,6 @@ class AlbumController extends Controller
             ], 404);
         }
 
-        // Hapus foto cover jika ada
         if ($album->photo_cover) {
             Storage::disk('public')->delete($album->photo_cover);
         }
@@ -156,7 +147,7 @@ class AlbumController extends Controller
         $album->delete();
 
         return response()->json([
-            'message' => 'Album successfully deleted', // Perbaiki pesan
+            'message' => 'Album successfully deleted',
             'code' => 200,
         ]);
     }

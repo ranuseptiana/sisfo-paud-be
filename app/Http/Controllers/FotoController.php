@@ -31,26 +31,22 @@ class FotoController extends Controller
     {
         Log::info('Incoming Foto Store Request', $request->all());
 
-        // Validasi input
         $validatedData = $request->validate([
-            'album_id' => 'required|exists:album,id', // Harus ada album_id
-            'file' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048', // Untuk file gambar
-            'caption' => 'nullable|string|max:255', // Caption bisa kosong
+            'album_id' => 'required|exists:album,id',
+            'file' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'caption' => 'nullable|string|max:255',
         ]);
 
         try {
             $album = Album::findOrFail($validatedData['album_id']);
-            $albumNameSlug = Str::slug($album->nama_album); // Ambil nama album untuk nama folder
+            $albumNameSlug = Str::slug($album->nama_album);
 
-            // Simpan file foto ke storage
-            // Path: public/images/album/{nama_album_slug}/{nama_file_unik.ext}
             $path = $request->file('file')->store("images/album/{$albumNameSlug}", 'public');
 
-            // Buat entri baru di database
             $foto = Foto::create([
                 'album_id' => $validatedData['album_id'],
-                'path_foto' => $path, // Simpan path yang dikembalikan oleh store()
-                'caption' => $validatedData['caption'] ?? null, // Ambil caption dari validatedData
+                'path_foto' => $path,
+                'caption' => $validatedData['caption'] ?? null,
             ]);
 
             return response()->json([
@@ -101,16 +97,13 @@ class FotoController extends Controller
      */
     public function update(Request $request, $id)
     {
-        // Untuk update foto, logika akan mirip dengan update album cover.
-        // Kamu perlu mempertimbangkan apakah yang diupdate hanya caption atau juga file fotonya.
-        // Jika file fotonya juga diupdate, kamu perlu menghapus file lama dari storage.
         Log::info('Incoming Foto Update Request', ['id' => $id, 'data' => $request->all()]);
 
         $foto = Foto::findOrFail($id);
 
         $validatedData = $request->validate([
             'album_id' => 'required|exists:album,id',
-            'file' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048', // file opsional untuk update
+            'file' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'caption' => 'nullable|string|max:255',
         ]);
 
@@ -119,18 +112,14 @@ class FotoController extends Controller
             'caption' => $validatedData['caption'] ?? null,
         ];
 
-        // Jika ada file baru diupload
         if ($request->hasFile('file')) {
-            // Hapus foto lama dari storage
             if ($foto->path_foto && Storage::disk('public')->exists($foto->path_foto)) {
                 Storage::disk('public')->delete($foto->path_foto);
             }
 
-            // Dapatkan nama album untuk folder baru
             $album = Album::findOrFail($validatedData['album_id']);
             $albumNameSlug = Str::slug($album->nama_album);
 
-            // Simpan file baru
             $path = $request->file('file')->store("images/album/{$albumNameSlug}", 'public');
             $dataToUpdate['path_foto'] = $path;
         }
@@ -144,8 +133,6 @@ class FotoController extends Controller
         ]);
     }
 
-
-    // Menghapus data foto
     public function destroy($id)
     {
         $foto = Foto::where('id', $id)->first();
@@ -157,7 +144,6 @@ class FotoController extends Controller
             ], 404);
         }
 
-        // Hapus file foto dari storage sebelum menghapus record dari database
         if ($foto->path_foto && Storage::disk('public')->exists($foto->path_foto)) {
             Storage::disk('public')->delete($foto->path_foto);
         }

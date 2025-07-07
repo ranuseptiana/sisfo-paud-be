@@ -17,13 +17,12 @@ class Agenda extends Model
         'keterangan'
     ];
 
-    // Relasi ke tabel admin
     public function admin()
     {
         return $this->belongsTo(Admin::class, 'admin_id');
     }
 
-    public $timestamps = false; // Menonaktifkan timestamps
+    public $timestamps = false;
 
     protected static function booted()
     {

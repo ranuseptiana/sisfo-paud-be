@@ -9,7 +9,7 @@ class Guru extends Model
 {
     use HasFactory;
 
-    public $timestamps = false; // Menonaktifkan penggunaan created_at dan updated_at
+    public $timestamps = false;
 
     // protected $primaryKey = 'nip';
     // public $incrementing = false;
@@ -30,7 +30,6 @@ class Guru extends Model
         'tempat_lahir',
     ];
 
-    // Relasi ke tabel admin
     public function admin()
     {
         return $this->belongsTo(Admin::class, 'admin_id');
@@ -39,15 +38,13 @@ class Guru extends Model
     protected static function booted()
     {
         static::creating(function ($guru) {
-            // Cek apakah admin pertama ada
             $admin = Admin::first();
-            if ($admin) {
-                // Isi admin_id dengan admin pertama jika belum diisi
+            if ($admin)
+            {
                 if (is_null($guru->admin_id)) {
                     $guru->admin_id = $admin->id;
                 }
             } else {
-                // Jika tidak ada admin, beri pesan atau buat logika lain
                 throw new \Exception("Tidak ada admin yang terdaftar!");
             }
         });

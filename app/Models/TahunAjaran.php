@@ -13,7 +13,6 @@ class TahunAjaran extends Model
 
     protected $fillable = ['tahun', 'aktif'];
 
-     // Relasi ke tabel admin
      public function admin()
      {
          return $this->belongsTo(Admin::class, 'admin_id');
