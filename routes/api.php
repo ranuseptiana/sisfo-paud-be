@@ -25,6 +25,12 @@ use App\Http\Controllers\TahunAjaranController;
 
 Route::get('/test', function(){
     $data = DB::select('select * from "orangtua"');
+
+    try {
+        DB::connection()->getPdo();
+    } catch (\Exception $e) {
+        die("Could not connect to the database.  Please check your configuration. error:" . $e );
+    }
 //
     return response()->json([
         'message' => 'ok',
