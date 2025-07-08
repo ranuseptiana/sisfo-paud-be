@@ -24,8 +24,11 @@ use App\Http\Controllers\TahunAjaranController;
 */
 
 Route::get('/test', function(){
+    $data = DB::select('select * from "orangtua"');
+
     return response()->json([
-        'message' => 'ok'
+        'message' => 'ok',
+        'data' => $data,
     ]);
 });
 
