@@ -23,6 +23,12 @@ use App\Http\Controllers\TahunAjaranController;
 |--------------------------------------------------------------------------
 */
 
+Route::get('/test', function(){
+    return response()->json([
+        'message' => 'ok'
+    ]);
+});
+
 Route::get('/users', [UserController::class, 'index']);
 Route::resource('admin', AdminController::class);
 Route::resource('kelas', KelasController::class);
