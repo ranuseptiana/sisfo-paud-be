@@ -8,9 +8,32 @@ use App\Models\Admin;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class AlbumController extends Controller
 {
+    private function uploadToSupabase($file, $folderName)
+    {
+        $bucket = 'images';
+        $fileName = $file->hashName();
+        $path = "album/{$folderName}/{$fileName}";
+
+        $response = Http::withHeaders([
+            'apikey' => env('SUPABASE_KEY'),
+            'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+            'Content-Type' => $file->getMimeType(),
+        ])->put(
+            env('SUPABASE_URL') . "/storage/v1/object/$bucket/$path",
+            file_get_contents($file)
+        );
+
+        if ($response->successful()) {
+            return env('SUPABASE_URL') . "/storage/v1/object/public/$bucket/$path";
+        }
+
+        return null;
+    }
+
     public function index()
     {
         $album = Album::all();
@@ -31,12 +54,6 @@ class AlbumController extends Controller
         ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
     public function store(Request $request)
     {
         Log::info('Store Album Request', $request->all());
@@ -50,10 +67,18 @@ class AlbumController extends Controller
         ]);
 
         $folderName = Str::slug($request->nama_album);
-        $path = $request->file('photo_cover')->store("images/album/{$folderName}", 'public');
+
+        $coverUrl = $this->uploadToSupabase($request->file('photo_cover'), $folderName);
+
+        if (!$coverUrl) {
+            return response()->json([
+                'message' => 'Upload ke Supabase gagal',
+                'code' => 500,
+            ], 500);
+        }
 
         $data = $validated;
-        $data['photo_cover'] = $path;
+        $data['photo_cover'] = $coverUrl;
 
         $album = Album::create($data);
 
@@ -64,12 +89,6 @@ class AlbumController extends Controller
         ], 201);
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function show($id)
     {
         $album = Album::findOrFail($id);
@@ -81,13 +100,6 @@ class AlbumController extends Controller
         ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function update(Request $request, $id)
     {
         Log::info('Update Album Request', ['id' => $id, 'data' => $request->all()]);
@@ -105,13 +117,18 @@ class AlbumController extends Controller
         $data = $validated;
 
         if ($request->hasFile('photo_cover')) {
-            if ($album->photo_cover) {
-                Storage::disk('public')->delete($album->photo_cover);
+            $folderName = Str::slug($request->nama_album);
+
+            $coverUrl = $this->uploadToSupabase($request->file('photo_cover'), $folderName);
+
+            if (!$coverUrl) {
+                return response()->json([
+                    'message' => 'Upload ke Supabase gagal saat update',
+                    'code' => 500,
+                ], 500);
             }
 
-            $folderName = Str::slug($request->nama_album);
-            $path = $request->file('photo_cover')->store("images/album/{$folderName}", 'public');
-            $data['photo_cover'] = $path;
+            $data['photo_cover'] = $coverUrl;
         }
 
         $album->update($data);
@@ -123,25 +140,15 @@ class AlbumController extends Controller
         ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function destroy($id)
     {
-        $album = Album::where('id', $id)->first();
+        $album = Album::find($id);
 
         if (!$album) {
             return response()->json([
                 'message' => 'Album not found',
                 'code' => 404,
             ], 404);
-        }
-
-        if ($album->photo_cover) {
-            Storage::disk('public')->delete($album->photo_cover);
         }
 
         $album->delete();

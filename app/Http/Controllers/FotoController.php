@@ -1,12 +1,13 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Models\Foto;
 use App\Models\Album;
-use App\Models\Admin;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 
 class FotoController extends Controller
@@ -40,43 +41,48 @@ class FotoController extends Controller
         try {
             $album = Album::findOrFail($validatedData['album_id']);
             $albumNameSlug = Str::slug($album->nama_album);
+            $file = $request->file('file');
+            $bucket = env('SUPABASE_BUCKET', 'images');
+            $fileName = uniqid() . '.' . $file->getClientOriginalExtension();
+            $path = "images/album/{$albumNameSlug}/{$fileName}";
 
-            $path = $request->file('file')->store("images/album/{$albumNameSlug}", 'public');
+            // Upload ke Supabase Storage
+            $response = Http::withHeaders([
+                'apikey' => env('SUPABASE_KEY'),
+                'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                'Content-Type' => $file->getMimeType(),
+            ])->put(
+                env('SUPABASE_URL') . "/storage/v1/object/{$bucket}/{$path}",
+                file_get_contents($file)
+            );
+
+            if (!$response->successful()) {
+                throw new \Exception('Gagal upload ke Supabase: ' . $response->body());
+            }
+
+            $publicUrl = env('SUPABASE_URL') . "/storage/v1/object/public/{$bucket}/{$path}";
 
             $foto = Foto::create([
                 'album_id' => $validatedData['album_id'],
-                'path_foto' => $path,
+                'path_foto' => $publicUrl,
                 'caption' => $validatedData['caption'] ?? null,
             ]);
 
             return response()->json([
                 'data' => $foto,
-                'message' => 'Foto berhasil diunggah dan disimpan',
+                'message' => 'Foto berhasil diunggah ke Supabase dan disimpan',
                 'code' => 201,
             ], 201);
 
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            Log::error('Album not found during foto upload', ['album_id' => $request->album_id, 'message' => $e->getMessage()]);
-            return response()->json([
-                'message' => 'Album tidak ditemukan.',
-                'code' => 404,
-            ], 404);
         } catch (\Exception $e) {
-            Log::error('Error storing foto', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            Log::error('Error storing foto', ['message' => $e->getMessage()]);
             return response()->json([
-                'message' => 'Gagal mengunggah dan menyimpan foto: ' . $e->getMessage(),
+                'message' => 'Gagal menyimpan foto: ' . $e->getMessage(),
                 'code' => 500,
             ], 500);
         }
     }
 
-
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function show($id)
     {
         $foto = Foto::findOrFail($id);
@@ -88,13 +94,6 @@ class FotoController extends Controller
         ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function update(Request $request, $id)
     {
         Log::info('Incoming Foto Update Request', ['id' => $id, 'data' => $request->all()]);
@@ -113,15 +112,31 @@ class FotoController extends Controller
         ];
 
         if ($request->hasFile('file')) {
-            if ($foto->path_foto && Storage::disk('public')->exists($foto->path_foto)) {
-                Storage::disk('public')->delete($foto->path_foto);
-            }
-
             $album = Album::findOrFail($validatedData['album_id']);
             $albumNameSlug = Str::slug($album->nama_album);
+            $file = $request->file('file');
+            $bucket = env('SUPABASE_BUCKET', 'images');
+            $fileName = uniqid() . '.' . $file->getClientOriginalExtension();
+            $path = "images/album/{$albumNameSlug}/{$fileName}";
 
-            $path = $request->file('file')->store("images/album/{$albumNameSlug}", 'public');
-            $dataToUpdate['path_foto'] = $path;
+            $response = Http::withHeaders([
+                'apikey' => env('SUPABASE_KEY'),
+                'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                'Content-Type' => $file->getMimeType(),
+            ])->put(
+                env('SUPABASE_URL') . "/storage/v1/object/{$bucket}/{$path}",
+                file_get_contents($file)
+            );
+
+            if ($response->successful()) {
+                $dataToUpdate['path_foto'] = env('SUPABASE_URL') . "/storage/v1/object/public/{$bucket}/{$path}";
+            } else {
+                Log::error('Failed to upload updated file to Supabase', ['response' => $response->body()]);
+                return response()->json([
+                    'message' => 'Gagal mengunggah file ke Supabase.',
+                    'code' => 500,
+                ], 500);
+            }
         }
 
         $foto->update($dataToUpdate);
@@ -135,23 +150,22 @@ class FotoController extends Controller
 
     public function destroy($id)
     {
-        $foto = Foto::where('id', $id)->first();
+        $foto = Foto::find($id);
 
         if (!$foto) {
             return response()->json([
-                'message' => 'Foto not found',
+                'message' => 'Foto tidak ditemukan',
                 'code' => 404,
             ], 404);
         }
 
-        if ($foto->path_foto && Storage::disk('public')->exists($foto->path_foto)) {
-            Storage::disk('public')->delete($foto->path_foto);
-        }
+        // Tidak bisa hapus file dari Supabase langsung tanpa SDK atau Signed URL
+        // Alternatif: log atau tandai untuk dihapus manual atau melalui Supabase CLI / SDK
 
         $foto->delete();
 
         return response()->json([
-            'message' => 'Foto successfully deleted',
+            'message' => 'Foto berhasil dihapus (catatan: file di Supabase tidak dihapus otomatis)',
             'code' => 200,
         ]);
     }

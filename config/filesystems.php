@@ -56,6 +56,16 @@ return [
             'throw' => false,
         ],
 
+        'supabase' => [
+            'driver' => 's3',
+            'key' => env('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90Z2pxam9qdW9vemV6YWF0YnB0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMTU5MDgsImV4cCI6MjA2NzU5MTkwOH0.62ngrToF7mYdgal6VHQY8ukSnlZlKYqXNkRyY_LMEGk'),
+            'secret' => env('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90Z2pxam9qdW9vemV6YWF0YnB0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MjAxNTkwOCwiZXhwIjoyMDY3NTkxOTA4fQ.Y78CySzZD-kpv-5hn5cOfuDEyif-bsCvbFGTrxyTJAQ'),
+            'region' => 'ap-southeast-1',
+            'bucket' => env('images'),
+            'endpoint' => env('https://otgjqjojuoozezaatbpt.supabase.co/storage/v1'),
+            'use_path_style_endpoint' => false,
+        ],
+
     ],
 
     /*

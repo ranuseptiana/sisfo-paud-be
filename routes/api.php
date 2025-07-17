@@ -23,29 +23,17 @@ use App\Http\Controllers\TahunAjaranController;
 |--------------------------------------------------------------------------
 */
 
-Route::get('/test', function(){
-    $data = DB::select('select * from "orangtua"');
-
-    try {
-        DB::connection()->getPdo();
-    } catch (\Exception $e) {
-        die("Could not connect to the database.  Please check your configuration. error:" . $e );
-    }
-//
-    return response()->json([
-        'message' => 'ok',
-        'data' => $data,
-    ]);
-});
-
 Route::get('/users', [UserController::class, 'index']);
 Route::resource('admin', AdminController::class);
 Route::resource('kelas', KelasController::class);
+Route::get('/guru/export', [GuruController::class, 'exportGuru']);
 Route::resource('guru', GuruController::class);
+Route::get('/orangtua/by-kk/{no_kk}', [OrangtuaController::class, 'getByNoKK']);
+Route::post('/orangtua/import', [OrangtuaController::class, 'importOrangtua']);
 Route::get('orangtua/export', [OrangtuaController::class, 'exportOrangtua']);
 Route::resource('orangtua', OrangtuaController::class);
 Route::resource('siswa', SiswaController::class);
-// Perbaikan urutan route untuk menghindari konflik
+Route::post('/siswa/import', [SiswaController::class, 'importSiswa']);
 Route::get('pembayaran/export', [PembayaranController::class, 'exportPembayaran']);
 Route::get('pembayaran', [PembayaranController::class, 'getPembayaran']);
 Route::resource('pembayaran', PembayaranController::class);

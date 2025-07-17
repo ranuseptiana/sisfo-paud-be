@@ -6,10 +6,51 @@ use App\Models\Guru;
 use App\Models\Admin;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
-
+use Illuminate\Support\Facades\DB;
 
 class GuruController extends Controller
 {
+    public function exportGuru(Request $request)
+    {
+        try {
+            $allowedColumns = [
+                'nip', 'nama_lengkap', 'gender', 'tempat_lahir', 'tgl_lahir',
+                'agama', 'alamat', 'no_telp', 'jabatan',
+                'jumlah_hari_mengajar', 'tugas_mengajar'
+            ];
+
+            $data = DB::table('guru')
+                ->select($allowedColumns)
+                ->get()
+                ->map(function ($item) {
+                    $itemArray = (array)$item;
+
+                    // Jika ada field tanggal lahir, ubah ke format string agar tidak error saat parsing JSON
+                    if (isset($itemArray['tgl_lahir'])) {
+                        $itemArray['tgl_lahir'] = (string)$itemArray['tgl_lahir'];
+                    }
+
+                    return $itemArray;
+                });
+
+                return response()->json([
+                    'success' => true,
+                    'data' => $data,
+                    'message' => 'Data guru berhasil diekspor'
+                ], 200, [
+                    'Content-Type' => 'application/json'
+                ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Export guru error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat ekspor: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public $timestamps = false;
 
     public function index()

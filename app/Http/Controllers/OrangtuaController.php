@@ -5,16 +5,48 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Orangtua;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Imports\OrangtuaImport;
 
 class OrangtuaController extends Controller
 {
+    public function getByNoKK($no_kk)
+    {
+        $orangtua = Orangtua::where('no_kk', $no_kk)->firstOrFail();
+
+        return response()->json([
+            'data' => $orangtua,
+            'message' => 'Data orangtua ditemukan',
+            'code' => 200
+        ]);
+    }
+
+    public function importOrangtua(Request $request)
+    {
+        try {
+            $request->validate([
+                'file' => 'required|mimes:xlsx,xls,csv|max:2048',
+            ]);
+
+            Excel::import(new OrangtuaImport, $request->file('file'));
+
+            return response()->json([
+                'message' => 'Data orangtua berhasil diimpor'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Gagal mengimpor data orangtua: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function exportOrangtua(Request $request)
     {
         try {
             $selectedColumns = $request->input('columns', []);
 
-            if (!is_array($selectedColumns)) {
-                $selectedColumns = is_string($selectedColumns) ? explode(',', $selectedColumns) : [];
+            if (!is_array($selectedColumns) || empty($selectedColumns)) {
+                $selectedColumns = $allowedColumns;
             }
 
             $allowedColumns = [
@@ -112,7 +144,7 @@ class OrangtuaController extends Controller
             'pekerjaan_ibu' => 'required|string|max:255',
             'pendidikan_ibu' => 'required|string|max:255',
             'penghasilan_ibu' => 'required|string|max:255',
-            'no_telp' => 'nullable|integer',
+            'no_telp' => 'nullable|string|max:16',
         ]);
 
         $data = $validated;
@@ -176,7 +208,7 @@ class OrangtuaController extends Controller
             'pekerjaan_ibu' => 'required|string|max:255',
             'pendidikan_ibu' => 'required|string|max:255',
             'penghasilan_ibu' => 'required|string|max:255',
-            'no_telp' => 'nullable|string|max:255',
+            'no_telp' => 'nullable|string|max:16',
         ]);
 
         $orangtua = Orangtua::findOrFail($id);

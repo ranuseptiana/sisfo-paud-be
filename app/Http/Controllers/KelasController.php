@@ -135,21 +135,56 @@ class KelasController extends Controller
         ]);
     }
 
+    // public function store(Request $request)
+    // {
+    //     $validated = $request->validate([
+    //         'nama_kelas' => 'required|string|max:255',
+    //         'guru_id' => 'required|exists:guru,id'
+    //     ]);
+
+    //     DB::beginTransaction();
+    //     try {
+    //         $kelas = Kelas::create(['nama_kelas' => $validated['nama_kelas']]);
+
+    //         RelasiKelas::create([
+    //             'kelas_id' => $kelas->id,
+    //             'guru_id' => $validated['guru_id']
+    //         ]);
+
+    //         DB::commit();
+
+    //         return response()->json([
+    //             'data' => $kelas,
+    //             'message' => 'Class successfully created',
+    //             'code' => 201,
+    //         ], 201);
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         return response()->json([
+    //             'message' => 'Failed to create class: ' . $e->getMessage(),
+    //             'code' => 500,
+    //         ], 500);
+    //     }
+    // }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
             'nama_kelas' => 'required|string|max:255',
-            'guru_id' => 'required|exists:guru,id'
+            'guru_id' => 'required|array',
+            'guru_id.*' => 'exists:guru,id',
         ]);
 
         DB::beginTransaction();
         try {
             $kelas = Kelas::create(['nama_kelas' => $validated['nama_kelas']]);
 
-            RelasiKelas::create([
-                'kelas_id' => $kelas->id,
-                'guru_id' => $validated['guru_id']
-            ]);
+            foreach ($validated['guru_id'] as $guruId) {
+                RelasiKelas::create([
+                    'kelas_id' => $kelas->id,
+                    'guru_id' => $guruId
+                ]);
+            }
 
             DB::commit();
 
@@ -167,11 +202,47 @@ class KelasController extends Controller
         }
     }
 
+
+    // public function update(Request $request, $id)
+    // {
+    //     $validated = $request->validate([
+    //         'nama_kelas' => 'required|string|max:255',
+    //         'guru_id' => 'required|exists:guru,id'
+    //     ]);
+
+    //     DB::beginTransaction();
+    //     try {
+    //         $kelas = Kelas::findOrFail($id);
+    //         $kelas->update(['nama_kelas' => $validated['nama_kelas']]);
+
+    //         RelasiKelas::where('kelas_id', $id)->delete();
+    //         RelasiKelas::create([
+    //             'kelas_id' => $id,
+    //             'guru_id' => $validated['guru_id']
+    //         ]);
+
+    //         DB::commit();
+
+    //         return response()->json([
+    //             'data' => $kelas,
+    //             'message' => 'Class successfully updated',
+    //             'code' => 200,
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         return response()->json([
+    //             'message' => 'Failed to update class: ' . $e->getMessage(),
+    //             'code' => 500,
+    //         ], 500);
+    //     }
+    // }
+
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
             'nama_kelas' => 'required|string|max:255',
-            'guru_id' => 'required|exists:guru,id'
+            'guru_id' => 'required|array',
+            'guru_id.*' => 'exists:guru,id',
         ]);
 
         DB::beginTransaction();
@@ -180,10 +251,13 @@ class KelasController extends Controller
             $kelas->update(['nama_kelas' => $validated['nama_kelas']]);
 
             RelasiKelas::where('kelas_id', $id)->delete();
-            RelasiKelas::create([
-                'kelas_id' => $id,
-                'guru_id' => $validated['guru_id']
-            ]);
+
+            foreach ($validated['guru_id'] as $guruId) {
+                RelasiKelas::create([
+                    'kelas_id' => $id,
+                    'guru_id' => $guruId
+                ]);
+            }
 
             DB::commit();
 
@@ -200,6 +274,7 @@ class KelasController extends Controller
             ], 500);
         }
     }
+
 
     public function destroy($id)
     {

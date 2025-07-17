@@ -4,10 +4,37 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Siswa;
+use App\Imports\SiswaImport;
+use Maatwebsite\Excel\Facades\Excel;
 use Carbon\Carbon;
 
 class SiswaController extends Controller
 {
+    public function importSiswa(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        try {
+            Excel::import(new SiswaImport, $request->file('file'));
+            return response()->json(['message' => 'Import berhasil'], 200);
+
+            if (count($import->failures) > 0) {
+                return response()->json([
+                    'message' => 'Beberapa baris gagal diimpor',
+                    'errors' => $import->failures,
+                ], 422);
+            }
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Gagal mengimpor data',
+                'error' => $e->getMessage(),
+            ], 500); // 500 error agar axios catch block terpanggil
+        }
+    }
+
     public function exportSiswa(Request $request)
     {
         try {
@@ -46,13 +73,18 @@ class SiswaController extends Controller
                     'siswa.nik_siswa',
                     'siswa.tanggal_lahir',
                     'siswa.tempat_lahir',
+                    'siswa.alamat',
                     'siswa.jenis_kelamin',
                     'siswa.agama',
                     'siswa.status',
                     'siswa.no_kk',
+                    'siswa.anak_ke',
+                    'siswa.jumlah_saudara',
+                    'siswa.berat_badan',
+                    'siswa.tinggi_badan',
+                    'siswa.lingkar_kepala',
                     'kelas.nama_kelas as kelas_nama',
-                    'tahun_ajaran.tahun as tahun_ajaran_nama',
-                    'siswa.anak_ke'
+                    'tahun_ajaran.tahun as tahun_ajaran_nama'
                 ];
                 $needsKelasJoin = true;
                 $needsTahunAjaranJoin = true;
@@ -80,13 +112,22 @@ class SiswaController extends Controller
             }
 
             $data = $query->get()->map(function($item) {
-                if (isset($item->tanggal_lahir) && $item->tanggal_lahir) {
+                // if (isset($item->tanggal_lahir) && $item->tanggal_lahir) {
+                //     try {
+                //         $item->tanggal_lahir = \Carbon\Carbon::parse($item->tanggal_lahir)->format('Y-m-d');
+                //     } catch (\Exception $e) {
+                //         $item->tanggal_lahir = null;
+                //     }
+                // }
+
+                if (property_exists($item, 'tanggal_lahir') && $item->tanggal_lahir) {
                     try {
                         $item->tanggal_lahir = \Carbon\Carbon::parse($item->tanggal_lahir)->format('Y-m-d');
                     } catch (\Exception $e) {
                         $item->tanggal_lahir = null;
                     }
                 }
+
                 return $item;
             });
 
