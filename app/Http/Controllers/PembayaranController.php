@@ -12,10 +12,34 @@ use App\Models\Admin;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Http;
 
 class PembayaranController extends Controller
 {
+    private function uploadToSupabase($file, $folderName)
+    {
+        $bucket = 'images';
+        $fileName = $file->hashName(); // tetap acak supaya unik
+        $path = "pembayaran/{$folderName}/{$fileName}"; // path folder: berdasarkan nama siswa
+
+        $response = Http::withHeaders([
+            'apikey' => env('SUPABASE_KEY'),
+            'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+            'Content-Type' => $file->getMimeType(),
+        ])->put(
+            env('SUPABASE_URL') . "/storage/v1/object/$bucket/$path",
+            file_get_contents($file)
+        );
+
+        if ($response->successful()) {
+            return env('SUPABASE_URL') . "/storage/v1/object/public/$bucket/$path";
+        }
+
+        return null;
+}
+
     public function exportPembayaran(Request $request)
 {
     try {
@@ -314,7 +338,7 @@ public function getPembayaran(Request $request)
                 'exists:siswa,id',
                 Rule::unique('pembayaran')->where(function ($query) use ($request, $tahunAjaranId) {
                     return $query->where('siswa_id', $request->siswa_id)
-                                 ->where('jenis_pembayaran', $request->jenis_pembayaran);
+                                ->where('jenis_pembayaran', $request->jenis_pembayaran);
                 })->whereNotNull('jenis_pembayaran')
             ],
             'tanggal_pembayaran' => 'nullable|date',
@@ -343,8 +367,11 @@ public function getPembayaran(Request $request)
             $isFullPayment = $validatedData['metode_pembayaran'] === 'full';
             $validatedData['status_pembayaran'] = $isFullPayment ? 'Lunas' : 'Belum Lunas';
 
+            // Simpan file dengan folder nama siswa
             if ($request->hasFile('bukti_pembayaran')) {
-                $path = $request->file('bukti_pembayaran')->store('images', 'public');
+                $namaSiswa = Str::slug($siswa->nama, '_'); // buat nama folder aman untuk nama file
+                $folderPath = "images/pembayaran/{$namaSiswa}";
+                $path = $request->file('bukti_pembayaran')->store($folderPath, 'public');
                 $validatedData['bukti_pembayaran'] = $path;
             } else {
                 $validatedData['bukti_pembayaran'] = null;
