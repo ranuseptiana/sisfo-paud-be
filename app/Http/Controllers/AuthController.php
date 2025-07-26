@@ -16,7 +16,6 @@ class AuthController extends Controller
         $request->validate([
             'username' => 'required',
             'password' => 'required',
-            'user_type' => 'required|in:admin,guru,siswa'
         ]);
 
         $user = User::where('username', $request->username)->first();
