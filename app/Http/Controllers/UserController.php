@@ -15,6 +15,14 @@ class UserController extends Controller
             'message' => 'Data User Berhasil Ditampilkan',
             'code' => 200,
         ]);
+
+        if (!$user) {
+            return response()->json(['error' => 'Username not found'], 404);
+        }
+
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json(['error' => 'Password mismatch'], 401);
+        }
     }
 
     /**

@@ -20,11 +20,19 @@ class AuthController extends Controller
 
         $user = User::where('username', $request->username)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'username' => ['The provided credentials are incorrect.'],
-            ]);
+        if (!$user) {
+            return response()->json(['error' => 'Username not found'], 404);
         }
+
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json(['error' => 'Password mismatch'], 401);
+        }
+
+        // if (!$user || !Hash::check($request->password, $user->password)) {
+        //     throw ValidationException::withMessages([
+        //         'username' => ['The provided credentials are incorrect.'],
+        //     ]);
+        // }
 
         $token = $user->createToken('login-token')->plainTextToken;
         $expires_at = now()->addMinutes(60);
