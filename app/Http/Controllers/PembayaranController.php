@@ -9,10 +9,10 @@ use App\Models\TahunAjaran;
 use App\Models\Cicilan;
 use App\Models\User;
 use App\Models\Admin;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Http;
 
@@ -20,28 +20,41 @@ class PembayaranController extends Controller
 {
     private function uploadToSupabase($file, $folderName)
     {
-        $bucket = 'images';
-        $fileName = $file->hashName(); // tetap acak supaya unik
-        $path = "pembayaran/{$folderName}/{$fileName}"; // path folder: berdasarkan nama siswa
+        try {
+            if (!$file || !$file->isValid()) {
+                Log::error('Invalid file');
+                return null;
+            }
 
-        $response = Http::withHeaders([
-            'apikey' => env('SUPABASE_KEY'),
-            'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
-            'Content-Type' => $file->getMimeType(),
-        ])->put(
-            env('SUPABASE_URL') . "/storage/v1/object/$bucket/$path",
-            file_get_contents($file)
-        );
+            $bucket = env('SUPABASE_BUCKET', 'images');
+            $fileName = Str::random(40) . '.' . $file->extension();
+            $path = "pembayaran/{$folderName}/{$fileName}";
+            $uploadUrl = env('SUPABASE_STORAGE_URL') . "/object/{$bucket}/{$path}";
 
-        if ($response->successful()) {
-            return env('SUPABASE_URL') . "/storage/v1/object/public/$bucket/$path";
+            $stream = \GuzzleHttp\Psr7\Utils::streamFor($file->get());
+
+            $response = Http::withHeaders([
+                'apikey' => env('SUPABASE_KEY'),
+                'Authorization' => 'Bearer ' . env('SUPABASE_SECRET'),
+                'Content-Type' => $file->getMimeType(),
+            ])->withBody($stream, $file->getMimeType())
+              ->put($uploadUrl);
+
+            if ($response->successful()) {
+                return env('SUPABASE_STORAGE_URL') . "/object/public/{$bucket}/{$path}";
+            }
+
+            Log::error('Upload gagal', ['status' => $response->status(), 'body' => $response->body()]);
+            return null;
+
+        } catch (\Exception $e) {
+            Log::error('Exception upload: ' . $e->getMessage());
+            return null;
         }
-
-        return null;
-}
+    }
 
     public function exportPembayaran(Request $request)
-{
+    {
     try {
         $request->validate([
             'kelas_ids' => 'sometimes|array',
@@ -295,12 +308,6 @@ public function getPembayaran(Request $request)
 
         $pembayaran = $pembayaran->map(function ($item) {
             $item->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
-
-            $buktiPembayaranUrl = null;
-            if ($item->bukti_pembayaran) {
-                $buktiPembayaranUrl = Storage::url($item->bukti_pembayaran);
-            }
-            $item->bukti_pembayaran_url = $buktiPembayaranUrl;
             return $item;
         });
 
@@ -367,12 +374,20 @@ public function getPembayaran(Request $request)
             $isFullPayment = $validatedData['metode_pembayaran'] === 'full';
             $validatedData['status_pembayaran'] = $isFullPayment ? 'Lunas' : 'Belum Lunas';
 
-            // Simpan file dengan folder nama siswa
+            // Upload bukti pembayaran ke Supabase
             if ($request->hasFile('bukti_pembayaran')) {
-                $namaSiswa = Str::slug($siswa->nama, '_'); // buat nama folder aman untuk nama file
-                $folderPath = "images/pembayaran/{$namaSiswa}";
-                $path = $request->file('bukti_pembayaran')->store($folderPath, 'public');
-                $validatedData['bukti_pembayaran'] = $path;
+                $namaSiswa = Str::slug($siswa->nama_siswa, '_');
+                $photoUrl = $this->uploadToSupabase($request->file('bukti_pembayaran'), $namaSiswa);
+
+                if (!$photoUrl) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Gagal mengupload bukti pembayaran ke Supabase',
+                        'code' => 500,
+                    ], 500);
+                }
+
+                $validatedData['bukti_pembayaran'] = $photoUrl;
             } else {
                 $validatedData['bukti_pembayaran'] = null;
             }
@@ -382,7 +397,6 @@ public function getPembayaran(Request $request)
             DB::commit();
 
             $pembayaran->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
-            $pembayaran->bukti_pembayaran_url = $pembayaran->bukti_pembayaran ? Storage::url($pembayaran->bukti_pembayaran) : null;
 
             return response()->json([
                 'message' => 'Pembayaran berhasil ditambahkan',
@@ -391,7 +405,7 @@ public function getPembayaran(Request $request)
 
         } catch (\Exception $e) {
             DB::rollBack();
-
+            Log::error('Error storing pembayaran: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Terjadi kesalahan saat menyimpan data pembayaran',
                 'error' => $e->getMessage()
@@ -411,28 +425,11 @@ public function getPembayaran(Request $request)
 
         $pembayaran->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
 
-        $buktiPembayaranUrl = null;
-        if ($pembayaran->bukti_pembayaran) {
-            $buktiPembayaranUrl = Storage::url($pembayaran->bukti_pembayaran);
-        }
-        $pembayaran->bukti_pembayaran_url = $buktiPembayaranUrl;
-
         return response()->json([
             'data' => $pembayaran,
             'message' => 'Success get pembayaran data',
             'code' => 200,
         ]);
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function edit($id)
-    {
-
     }
 
     /**
@@ -445,6 +442,7 @@ public function getPembayaran(Request $request)
     public function update(Request $request, $id)
     {
         $pembayaran = Pembayaran::findOrFail($id);
+        $siswa = Siswa::find($pembayaran->siswa_id);
 
         $validator = Validator::make($request->all(), [
             'siswa_id' => 'required|exists:siswa,id',
@@ -468,16 +466,21 @@ public function getPembayaran(Request $request)
         try {
             $validatedData = $validator->validated();
 
+            // Handle file upload
             if ($request->hasFile('bukti_pembayaran')) {
-                if ($pembayaran->bukti_pembayaran && Storage::disk('public')->exists($pembayaran->bukti_pembayaran)) {
-                    Storage::disk('public')->delete($pembayaran->bukti_pembayaran);
+                $namaSiswa = Str::slug($siswa->nama_siswa, '_');
+                $photoUrl = $this->uploadToSupabase($request->file('bukti_pembayaran'), $namaSiswa);
+
+                if (!$photoUrl) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Gagal mengupload bukti pembayaran ke Supabase',
+                        'code' => 500,
+                    ], 500);
                 }
-                $path = $request->file('bukti_pembayaran')->store('images', 'public');
-                $validatedData['bukti_pembayaran'] = $path;
+
+                $validatedData['bukti_pembayaran'] = $photoUrl;
             } else if ($request->input('bukti_pembayaran') === null || $request->input('bukti_pembayaran') === '') {
-                if ($pembayaran->bukti_pembayaran && Storage::disk('public')->exists($pembayaran->bukti_pembayaran)) {
-                    Storage::disk('public')->delete($pembayaran->bukti_pembayaran);
-                }
                 $validatedData['bukti_pembayaran'] = null;
             } else {
                 unset($validatedData['bukti_pembayaran']);
@@ -485,18 +488,15 @@ public function getPembayaran(Request $request)
 
             if (isset($validatedData['metode_pembayaran'])) {
                 $pembayaran->metode_pembayaran = $validatedData['metode_pembayaran'];
-
                 $pembayaran->status_pembayaran = $pembayaran->metode_pembayaran === 'full' ? 'Lunas' : 'Belum Lunas';
-                // $pembayaran->status_cicilan = $pembayaran->metode_pembayaran === 'full' ? 'Lunas' : 'Belum Lunas';
             }
 
             $pembayaran->fill($validatedData);
-
             $pembayaran->save();
+
             DB::commit();
 
             $pembayaran->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
-            $pembayaran->bukti_pembayaran_url = $pembayaran->bukti_pembayaran ? Storage::url($pembayaran->bukti_pembayaran) : null;
 
             return response()->json([
                 'data' => $pembayaran,
@@ -506,6 +506,7 @@ public function getPembayaran(Request $request)
 
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Error updating pembayaran: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Error saat mengupdate pembayaran: ' . $e->getMessage(),
                 'code' => 500
@@ -525,10 +526,6 @@ public function getPembayaran(Request $request)
         try {
             $pembayaran = Pembayaran::findOrFail($id);
 
-            if ($pembayaran->bukti_pembayaran && Storage::disk('public')->exists($pembayaran->bukti_pembayaran)) {
-                Storage::disk('public')->delete($pembayaran->bukti_pembayaran);
-            }
-
             if ($pembayaran->cicilan()->count() > 0) {
                 $pembayaran->cicilan()->delete();
             }
@@ -544,6 +541,7 @@ public function getPembayaran(Request $request)
 
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Error deleting pembayaran: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Error saat menghapus pembayaran: ' . $e->getMessage(),
                 'code' => 500

@@ -14,7 +14,7 @@ class GuruController extends Controller
     {
         try {
             $allowedColumns = [
-                'nip', 'nama_lengkap', 'gender', 'tempat_lahir', 'tgl_lahir',
+                'niy', 'nama_lengkap', 'gender', 'tempat_lahir', 'tgl_lahir',
                 'agama', 'alamat', 'no_telp', 'jabatan',
                 'jumlah_hari_mengajar', 'tugas_mengajar'
             ];
@@ -25,7 +25,6 @@ class GuruController extends Controller
                 ->map(function ($item) {
                     $itemArray = (array)$item;
 
-                    // Jika ada field tanggal lahir, ubah ke format string agar tidak error saat parsing JSON
                     if (isset($itemArray['tgl_lahir'])) {
                         $itemArray['tgl_lahir'] = (string)$itemArray['tgl_lahir'];
                     }
@@ -66,7 +65,7 @@ class GuruController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nip' => 'required|integer',
+            'niy' => 'required|integer',
             'nama_lengkap' => 'required|string|max:255',
             'gender' => 'required|string|max:255',
             'tempat_lahir' => 'required|string|max:255',
@@ -115,7 +114,7 @@ class GuruController extends Controller
     public function update(Request $request, $id) {
 
     $validated = $request->validate([
-        'nip' => 'required|integer',
+        'niy' => 'required|integer',
         'nama_lengkap' => 'required|string|max:255',
         'gender' => 'required|string|max:255',
         'tempat_lahir' => 'required|string|max:255',

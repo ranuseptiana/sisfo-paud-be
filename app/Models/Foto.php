@@ -14,6 +14,7 @@ class Foto extends Model
     protected $fillable = [
         'album_id',
         'path_foto',
+        'caption'
     ];
 
     protected static function booted()
