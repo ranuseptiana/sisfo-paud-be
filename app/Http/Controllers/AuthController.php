@@ -16,6 +16,7 @@ class AuthController extends Controller
         $request->validate([
             'username' => 'required',
             'password' => 'required',
+            'user_type' => 'required|in:admin,guru,siswa'
         ]);
 
         $user = User::where('username', $request->username)->first();
@@ -34,8 +35,15 @@ class AuthController extends Controller
         //     ]);
         // }
 
+        if (strtolower($user->user_type) !== strtolower($request->user_type)) {
+            return response()->json([
+                'error' => 'Account type mismatch',
+                'message' => 'This account is not registered as a ' . $request->user_type
+            ], 403);
+        }
+
         $token = $user->createToken('login-token')->plainTextToken;
-        $expires_at = now()->addMinutes(60);
+        $expires_at = now()->addMinutes(2);
 
         return response()->json([
             'user' => $user,
