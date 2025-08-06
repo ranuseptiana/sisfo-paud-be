@@ -117,16 +117,17 @@ class KelasController extends Controller
     public function index()
     {
         $kelas = Kelas::leftJoin('relasi_kelas', 'kelas.id', '=', 'relasi_kelas.kelas_id')
-        ->leftJoin('guru', 'relasi_kelas.guru_id', '=', 'guru.id')
-        ->leftJoin('siswa', 'kelas.id', '=', 'siswa.kelas_id')
-        ->select(
-            'kelas.id',
-            'kelas.nama_kelas',
-            DB::raw("COALESCE(STRING_AGG(DISTINCT guru.nama_lengkap, ', '), '') as nama_guru"),
-            DB::raw("(SELECT COUNT(*) FROM siswa WHERE siswa.kelas_id = kelas.id) as jumlah_siswa")
-        )
-        ->groupBy('kelas.id', 'kelas.nama_kelas')
-        ->get();
+            ->leftJoin('guru', 'relasi_kelas.guru_id', '=', 'guru.id')
+            ->leftJoin('siswa', 'kelas.id', '=', 'siswa.kelas_id')
+            ->select(
+                'kelas.id',
+                'kelas.nama_kelas',
+                DB::raw("COALESCE(STRING_AGG(DISTINCT guru.nama_lengkap, ', '), '') as nama_guru"),
+                DB::raw("COALESCE(STRING_AGG(DISTINCT guru.id::text, ','), '') as guru_ids"), // Tambah ini
+                DB::raw("(SELECT COUNT(*) FROM siswa WHERE siswa.kelas_id = kelas.id) as jumlah_siswa")
+            )
+            ->groupBy('kelas.id', 'kelas.nama_kelas')
+            ->get();
 
         return response()->json([
             'data' => $kelas,

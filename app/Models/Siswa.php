@@ -89,5 +89,4 @@ class Siswa extends Model
     {
         return $this->load('user')->user;
     }
-
 }

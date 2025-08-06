@@ -70,6 +70,70 @@ class FotoController extends Controller
         ]);
     }
 
+    public function storeMultiple(Request $request)
+    {
+        DB::beginTransaction();
+        try {
+            $validator = Validator::make($request->all(), [
+                'album_id' => 'required|exists:album,id',
+                'files.*' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:5120',
+                'caption' => 'nullable|string',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'message' => 'Validasi gagal',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $album = Album::findOrFail($request->album_id);
+            $albumNameSlug = Str::slug($album->nama_album);
+            $uploadedPhotos = [];
+
+            // Handle multiple file uploads
+            if ($request->hasFile('files')) {
+                foreach ($request->file('files') as $file) {
+                    $photoUrl = $this->uploadToSupabase($file, $albumNameSlug);
+
+                    if (!$photoUrl) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => 'Gagal mengupload foto ke Supabase',
+                            'code' => 500,
+                        ], 500);
+                    }
+
+                    $foto = Foto::create([
+                        'album_id' => $request->album_id,
+                        'path_foto' => $photoUrl,
+                        'caption' => $request->caption,
+                    ]);
+
+                    $uploadedPhotos[] = $foto;
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => count($uploadedPhotos) . ' foto berhasil disimpan',
+                'data' => $uploadedPhotos,
+                'code' => 201
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error storing multiple fotos: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Terjadi kesalahan server',
+                'error' => $e->getMessage(),
+                'code' => 500,
+            ], 500);
+        }
+    }
+
     public function store(Request $request)
     {
         DB::beginTransaction();
@@ -90,7 +154,6 @@ class FotoController extends Controller
             $album = Album::findOrFail($request->album_id);
             $albumNameSlug = Str::slug($album->nama_album);
 
-            // Handle file upload
             $photoUrl = null;
             if ($request->hasFile('file')) {
                 $photoUrl = $this->uploadToSupabase($request->file('file'), $albumNameSlug);
@@ -111,8 +174,6 @@ class FotoController extends Controller
             ]);
 
             DB::commit();
-
-            // Di method store()
             return response()->json([
                 'status' => 'success',
                 'message' => 'Foto berhasil disimpan',
@@ -146,11 +207,10 @@ class FotoController extends Controller
 {
     $foto = Foto::findOrFail($id);
 
-    // Validator - pastikan caption nullable
     $validator = Validator::make($request->all(), [
         'album_id' => 'required|exists:album,id',
         'file' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:5120',
-        'caption' => 'nullable|string', // Pastikan nullable
+        'caption' => 'nullable|string',
     ]);
 
     if ($validator->fails()) {
@@ -168,9 +228,8 @@ class FotoController extends Controller
 
     DB::beginTransaction();
     try {
-        $data = $request->only(['album_id', 'caption']); // Ambil langsung dari request
+        $data = $request->only(['album_id', 'caption']);
 
-        // Jika ada file baru
         if ($request->hasFile('file')) {
             $album = Album::findOrFail($request->album_id);
             $albumNameSlug = Str::slug($album->nama_album);
@@ -187,7 +246,7 @@ class FotoController extends Controller
             $data['path_foto'] = $photoUrl;
         }
 
-        $foto->update($data); // Update data
+        $foto->update($data);
 
         DB::commit();
 

@@ -54,7 +54,7 @@ class PembayaranController extends Controller
     }
 
     public function exportPembayaran(Request $request)
-    {
+{
     try {
         $request->validate([
             'kelas_ids' => 'sometimes|array',
@@ -66,7 +66,7 @@ class PembayaranController extends Controller
             'tahun_akhir' => 'sometimes|integer'
         ]);
 
-        $query = Pembayaran::with(['siswa.kelas', 'siswa.tahunAjaran',  'cicilan' => function($q) {
+        $query = Pembayaran::with(['siswa.kelas', 'siswa.tahunAjaran', 'cicilan' => function($q) {
             $q->where('status_verifikasi', 'disetujui')
               ->orderBy('tanggal_cicilan', 'asc');
         }])
@@ -94,11 +94,6 @@ class PembayaranController extends Controller
         $data = $query->get()->map(function ($item) {
             $item->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
 
-            $buktiPembayaranUrl = null;
-            if ($item->bukti_pembayaran) {
-                $buktiPembayaranUrl = Storage::url($item->bukti_pembayaran);
-            }
-
             return [
                 'id' => $item->id,
                 'siswa_id' => $item->siswa_id,
@@ -116,7 +111,6 @@ class PembayaranController extends Controller
                 'nominal' => $item->nominal,
                 'total_cicilan' => $item->total_cicilan,
                 'sisa_pembayaran' => $item->sisa_pembayaran,
-                'bukti_pembayaran' => $item->bukti_pembayaran,
                 'cicilan' => $item->cicilan
             ];
         });
@@ -133,6 +127,40 @@ class PembayaranController extends Controller
             'message' => 'Terjadi kesalahan saat mengambil data pembayaran: ' . $e->getMessage()
         ], 500);
     }
+}
+
+public function getTotalPembayaranBySiswa($idUser)
+{
+    $user = \App\Models\User::with('siswa')->find($idUser);
+
+    if (!$user || !$user->siswa) {
+        return response()->json([
+            'success' => false,
+            'message' => 'User atau siswa tidak ditemukan'
+        ], 404);
+    }
+
+    $siswaId = $user->siswa->id;
+
+    $pembayaran = Pembayaran::where('siswa_id', $siswaId)->get();
+
+    if ($pembayaran->isEmpty()) {
+        return response()->json([
+            'success' => true,
+            'total_pembayaran' => 0,
+            'data' => [],
+            'message' => 'Tidak ada pembayaran ditemukan untuk siswa ini'
+        ]);
+    }
+
+    $total = $pembayaran->sum(fn($p) => (float) $p->nominal);
+
+    return response()->json([
+        'success' => true,
+        'total_pembayaran' => $total,
+        'data' => $pembayaran,
+        'message' => 'Total pembayaran berhasil dihitung'
+    ]);
 }
 
 public function getPembayaran(Request $request)
@@ -196,10 +224,7 @@ public function getPembayaran(Request $request)
         $formattedData = $pembayaran->map(function ($item) {
             $item->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
 
-            $buktiPembayaranUrl = null;
-            if ($item->bukti_pembayaran) {
-                $buktiPembayaranUrl = Storage::url($item->bukti_pembayaran);
-            }
+            $buktiPembayaranUrl = $item->bukti_pembayaran;
 
             return [
                 'id_pembayaran' => $item->id,
@@ -265,10 +290,7 @@ public function getPembayaran(Request $request)
         $formattedData = $pembayaran->map(function ($item) {
             $item->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
 
-            $buktiPembayaranUrl = null;
-            if ($item->bukti_pembayaran) {
-                $buktiPembayaranUrl = Storage::url($item->bukti_pembayaran);
-            }
+            $buktiPembayaranUrl = $item->bukti_pembayaran;
 
             return [
                 'id_pembayaran' => $item->id,
@@ -424,6 +446,11 @@ public function getPembayaran(Request $request)
         $pembayaran = Pembayaran::with(['cicilan', 'siswa'])->findOrFail($id);
 
         $pembayaran->append(['total_cicilan', 'sisa_pembayaran', 'status_cicilan']);
+        $pembayaran->bukti_pembayaran_url = $pembayaran->bukti_pembayaran
+        ? (str_starts_with($pembayaran->bukti_pembayaran, 'http')
+            ? $pembayaran->bukti_pembayaran
+            : env('SUPABASE_STORAGE_URL') . '/object/public/' . $pembayaran->bukti_pembayaran)
+        : null;
 
         return response()->json([
             'data' => $pembayaran,
@@ -453,6 +480,7 @@ public function getPembayaran(Request $request)
             'jenis_pembayaran' => 'nullable|string|max:255',
             'status_atribut' => 'nullable|string|max:255',
             'metode_pembayaran' => 'sometimes|in:full,cicilan',
+            'should_delete_bukti' => 'sometimes|boolean'
         ]);
 
         if ($validator->fails()) {
@@ -466,23 +494,18 @@ public function getPembayaran(Request $request)
         try {
             $validatedData = $validator->validated();
 
-            // Handle file upload
-            if ($request->hasFile('bukti_pembayaran')) {
+
+            if ($request->input('should_delete_bukti')) {
+                $validatedData['bukti_pembayaran'] = null;
+            }
+            // Handle file upload baru
+            else if ($request->hasFile('bukti_pembayaran')) {
                 $namaSiswa = Str::slug($siswa->nama_siswa, '_');
                 $photoUrl = $this->uploadToSupabase($request->file('bukti_pembayaran'), $namaSiswa);
-
-                if (!$photoUrl) {
-                    DB::rollBack();
-                    return response()->json([
-                        'message' => 'Gagal mengupload bukti pembayaran ke Supabase',
-                        'code' => 500,
-                    ], 500);
-                }
-
                 $validatedData['bukti_pembayaran'] = $photoUrl;
-            } else if ($request->input('bukti_pembayaran') === null || $request->input('bukti_pembayaran') === '') {
-                $validatedData['bukti_pembayaran'] = null;
-            } else {
+            }
+            // Pertahankan yang lama jika tidak ada perubahan
+            else {
                 unset($validatedData['bukti_pembayaran']);
             }
 

@@ -22,9 +22,9 @@ class User extends Authenticatable
         'username',
         'password',
         'user_type',
-        'id_reference',
-        'id_siswa',
-        'id_guru',
+        'reference_id',
+        'siswa_id',
+        'guru_id',
     ];
 
     /**
@@ -60,4 +60,13 @@ class User extends Authenticatable
     {
         return $this->load('siswa.kelas.waliKelas', 'siswa.kelas.siswa')->siswa;
     }
+    // public static function isAlreadyRegistered($userType, $id)
+    // {
+    //     if ($userType === 'siswa') {
+    //         return self::where('siswa_id', $id)->exists();
+    //     } elseif ($userType === 'guru') {
+    //         return self::where('guru_id', $id)->exists();
+    //     }
+    //     return false;
+    // }
 }

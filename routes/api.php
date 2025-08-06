@@ -41,6 +41,7 @@ Route::resource('pembayaran', PembayaranController::class);
 Route::resource('relasikelas', RelasiKelasController::class);
 //Route::get('pembayaran/export', [PembayaranController::class, 'exportPembayaran']);
 //Route::resource('pembayaran', PembayaranController::class);
+Route::get('siswa/{idSiswa}/total-pembayaran', [PembayaranController::class, 'getTotalPembayaranBySiswa']);
 Route::get('siswa/{idSiswa}/pembayaran/', [PembayaranController::class, 'showByPembayaranIdSiswa']);
 Route::resource('cicilan', CicilanController::class);
 Route::get('/cicilan/pembayaran/{id}', [CicilanController::class, 'showByPembayaranId']);
@@ -48,6 +49,7 @@ Route::resource('tahunajaran', TahunAjaranController::class);
 Route::resource('agenda', AgendaController::class);
 Route::resource('album', AlbumController::class);
 Route::resource('foto', FotoController::class);
+Route::post('/foto/multiple', [FotoController::class, 'storeMultiple']);
 Route::middleware('auth:sanctum')->get('/user', [UserController::class, 'show']);
 Route::middleware('auth:sanctum')->get('/profile', [UserController::class, 'profile']);
 Route::get('/album/{id}/foto', [FotoController::class, 'getFotoByAlbum']);
@@ -56,6 +58,8 @@ Route::get('guru/{idGuru}/kelas', [KelasController::class, 'daftarKelas']);
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/register-guru', [AuthController::class, 'registerGuru']);
+    Route::post('/register-siswa', [AuthController::class, 'registerSiswa']);
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 });
 
