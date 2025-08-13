@@ -65,9 +65,9 @@ class Siswa extends Model
         return $this->belongsTo(Orangtua::class, 'no_kk', 'no_kk');
     }
 
-    public function pembayaranSPP()
+    public function pembayaran()
     {
-        return $this->hasMany(PembayaranSPP::class, 'siswa_id', 'id');
+        return $this->hasMany(Pembayaran::class, 'siswa_id', 'id');
     }
 
     public function kelas()
@@ -82,7 +82,7 @@ class Siswa extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class, 'siswa_id');
+        return $this->hasOne(User::class, 'siswa_id');
     }
 
     public function getUserData()

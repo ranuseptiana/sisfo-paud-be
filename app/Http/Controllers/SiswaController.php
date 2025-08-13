@@ -4,36 +4,49 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Siswa;
+use App\Models\User;
 use App\Imports\SiswaImport;
 use Maatwebsite\Excel\Facades\Excel;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 class SiswaController extends Controller
 {
     public function importSiswa(Request $request)
-    {
-        $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
-        ]);
+{
+    $request->validate([
+        'file' => 'required|file|mimes:xlsx,xls,csv',
+    ]);
 
-        try {
-            Excel::import(new SiswaImport, $request->file('file'));
-            return response()->json(['message' => 'Import berhasil'], 200);
+    try {
+        // Import siswa dari file Excel
+        Excel::import(new SiswaImport, $request->file('file'));
 
-            if (count($import->failures) > 0) {
-                return response()->json([
-                    'message' => 'Beberapa baris gagal diimpor',
-                    'errors' => $import->failures,
-                ], 422);
-            }
+        // Ambil semua siswa yang belum punya akun user
+        $siswaBaru = Siswa::doesntHave('user')->orderByDesc('id')->get();
 
-        } catch (\Throwable $e) {
-            return response()->json([
-                'message' => 'Gagal mengimpor data',
-                'error' => $e->getMessage(),
-            ], 500); // 500 error agar axios catch block terpanggil
+        foreach ($siswaBaru as $siswa) {
+            User::create([
+                'name'      => $siswa->nama_siswa,
+                'username'  => $siswa->nisn ?? $siswa->nipd ?? Str::random(8),
+                'password'  => Hash::make($siswa->tanggal_lahir),
+                'user_type' => 'siswa',
+                'siswa_id'  => $siswa->id,
+            ]);
         }
+
+        return response()->json(['message' => 'Import berhasil'], 200);
+
+    } catch (\Throwable $e) {
+        return response()->json([
+            'message' => 'Gagal mengimpor data',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
+
 
     public function exportSiswa(Request $request)
     {
