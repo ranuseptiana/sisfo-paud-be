@@ -15,38 +15,47 @@ use Illuminate\Support\Facades\DB;
 class SiswaController extends Controller
 {
     public function importSiswa(Request $request)
-{
-    $request->validate([
-        'file' => 'required|file|mimes:xlsx,xls,csv',
-    ]);
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
 
-    try {
-        // Import siswa dari file Excel
-        Excel::import(new SiswaImport, $request->file('file'));
+        try {
+            $existingSiswaIds = Siswa::pluck('id')->toArray();
 
-        // Ambil semua siswa yang belum punya akun user
-        $siswaBaru = Siswa::doesntHave('user')->orderByDesc('id')->get();
+            Excel::import(new SiswaImport, $request->file('file'));
 
-        foreach ($siswaBaru as $siswa) {
-            User::create([
-                'name'      => $siswa->nama_siswa,
-                'username'  => $siswa->nisn ?? $siswa->nipd ?? Str::random(8),
-                'password'  => Hash::make($siswa->tanggal_lahir),
-                'user_type' => 'siswa',
-                'siswa_id'  => $siswa->id,
-            ]);
+            $siswaBaru = Siswa::whereNotIn('id', $existingSiswaIds)
+                            ->whereDoesntHave('user')
+                            ->get();
+
+                            foreach ($siswaBaru as $siswa) {
+                                // ambil 2 kata awal dari nama
+                                $namaArray = explode(' ', trim($siswa->nama_siswa));
+                                $duaKataAwal = implode('', array_slice($namaArray, 0, 2));
+                                $username = strtolower($duaKataAwal);
+
+                                $nisn = $siswa->nisn ?? '123';
+                                $lastThree = substr($nisn, -3);
+                                $password = $username . $lastThree;
+
+                                User::create([
+                                    'name' => $siswa->nama_siswa,
+                                    'username' => $username,
+                                    'password' => Hash::make($password),
+                                    'user_type' => 'siswa',
+                                    'siswa_id' => $siswa->id,
+                                ]);
+                            }
+            return response()->json(['message' => 'Import berhasil'], 200);
+
+        } catch (\Throwable $e) {
+            // Posisi 3: Debug error
+            // dd($e->getMessage(), $e->getTrace()); // <-- Uncomment untuk debug error
+
+            return response()->json(['message' => 'Import gagal: ' . $e->getMessage()], 500);
         }
-
-        return response()->json(['message' => 'Import berhasil'], 200);
-
-    } catch (\Throwable $e) {
-        return response()->json([
-            'message' => 'Gagal mengimpor data',
-            'error' => $e->getMessage(),
-        ], 500);
     }
-}
-
 
     public function exportSiswa(Request $request)
     {
@@ -59,10 +68,12 @@ class SiswaController extends Controller
             $columnsToSelect = [];
             $needsKelasJoin = false;
             $needsTahunAjaranJoin = false;
+            $needsTahunLulusJoin = false;
 
             $allowedColumns = [
                 'id', 'nisn', 'nipd', 'nama_siswa', 'nik_siswa', 'tanggal_lahir',
-                'tempat_lahir', 'jenis_kelamin', 'agama', 'status', 'no_kk'
+                'tempat_lahir', 'jenis_kelamin', 'agama', 'status', 'no_kk',
+                'tahun_ajaran_id', 'tahun_lulus_id'
             ];
 
             foreach ($selectedColumns as $col) {
@@ -71,7 +82,10 @@ class SiswaController extends Controller
                     $columnsToSelect[] = 'kelas.nama_kelas as kelas_nama';
                 } elseif ($col === 'tahun_ajaran_nama') {
                     $needsTahunAjaranJoin = true;
-                    $columnsToSelect[] = 'tahun_ajaran.tahun as tahun_ajaran_nama';
+                    $columnsToSelect[] = 'tahun_ajaran_masuk.tahun as tahun_ajaran_nama';
+                } elseif ($col === 'tahun_lulus_nama') {
+                    $needsTahunLulusJoin = true;
+                    $columnsToSelect[] = 'tahun_ajaran_lulus.tahun as tahun_lulus_nama';
                 } elseif (in_array($col, $allowedColumns)) {
                     $columnsToSelect[] = "siswa.$col";
                 }
@@ -97,10 +111,12 @@ class SiswaController extends Controller
                     'siswa.tinggi_badan',
                     'siswa.lingkar_kepala',
                     'kelas.nama_kelas as kelas_nama',
-                    'tahun_ajaran.tahun as tahun_ajaran_nama'
+                    'tahun_ajaran_masuk.tahun as tahun_ajaran_nama',
+                    'tahun_ajaran_lulus.tahun as tahun_lulus_nama'
                 ];
                 $needsKelasJoin = true;
                 $needsTahunAjaranJoin = true;
+                $needsTahunLulusJoin = true;
             }
 
             // Inisialisasi query
@@ -116,23 +132,32 @@ class SiswaController extends Controller
                 $query->whereIn('siswa.kelas_id', $kelasIds);
             }
 
+            if ($request->filled('tahun_ajaran_id')) {
+                $query->where('siswa.tahun_ajaran_id', $request->tahun_ajaran_id);
+            }
+
+            if ($request->filled('tahun_lulus_id')) {
+                $query->where('siswa.tahun_lulus_id', $request->tahun_lulus_id);
+            }
+
             if ($needsKelasJoin) {
                 $query->leftJoin('kelas', 'siswa.kelas_id', '=', 'kelas.id');
             }
 
             if ($needsTahunAjaranJoin) {
-                $query->leftJoin('tahun_ajaran', 'siswa.tahun_ajaran_id', '=', 'tahun_ajaran.id');
+                $query->leftJoin('tahun_ajaran as tahun_ajaran_masuk', 'siswa.tahun_ajaran_id', '=', 'tahun_ajaran_masuk.id');
+            }
+
+            if ($needsTahunLulusJoin) {
+                $query->leftJoin('tahun_ajaran as tahun_ajaran_lulus', 'siswa.tahun_lulus_id', '=', 'tahun_ajaran_lulus.id');
+            }
+
+            if ($request->has('sort_by')) {
+                $direction = $request->sort_order ?? 'asc';
+                $query->orderBy($request->sort_by, $direction);
             }
 
             $data = $query->get()->map(function($item) {
-                // if (isset($item->tanggal_lahir) && $item->tanggal_lahir) {
-                //     try {
-                //         $item->tanggal_lahir = \Carbon\Carbon::parse($item->tanggal_lahir)->format('Y-m-d');
-                //     } catch (\Exception $e) {
-                //         $item->tanggal_lahir = null;
-                //     }
-                // }
-
                 if (property_exists($item, 'tanggal_lahir') && $item->tanggal_lahir) {
                     try {
                         $item->tanggal_lahir = \Carbon\Carbon::parse($item->tanggal_lahir)->format('Y-m-d');
@@ -213,7 +238,8 @@ class SiswaController extends Controller
             'lingkar_kepala' => 'nullable|integer',
             'kelas_id' => 'required|exists:kelas,id',
             'status' => 'required|string|max:255',
-            'tahun_ajaran_id' => 'required|exists:tahun_ajaran,id'
+            'tahun_ajaran_id' => 'required|exists:tahun_ajaran,id',
+            'tahun_lulus_id' => 'nullable|exists:tahun_ajaran,id'
         ]);
 
         $validated['tanggal_lahir'] = Carbon::parse($validated['tanggal_lahir'])->format('Y-m-d');
@@ -287,7 +313,8 @@ class SiswaController extends Controller
             'lingkar_kepala' => 'required|integer',
             'kelas_id' => 'required|exists:kelas,id',
             'status' => 'required|string|max:255',
-            'tahun_ajaran_id' => 'required|exists:tahun_ajaran,id'
+            'tahun_ajaran_id' => 'required|exists:tahun_ajaran,id',
+            'tahun_lulus_id' => 'nullable|exists:tahun_ajaran,id'
         ]);
 
         $validated['tanggal_lahir'] = Carbon::parse($validated['tanggal_lahir'])->format('Y-m-d');

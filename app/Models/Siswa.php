@@ -29,7 +29,8 @@ class Siswa extends Model
         'lingkar_kepala',
         'kelas_id',
         'status',
-        'tahun_ajaran_id'
+        'tahun_ajaran_id',
+        'tahun_lulus_id',
     ];
 
     public function admin()
