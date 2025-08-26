@@ -219,39 +219,85 @@ class SiswaController extends Controller
      * @return \Illuminate\Http\Response
      */
     public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'no_kk' => 'required|exists:orangtua,no_kk',
-            'nik_siswa' => 'required|unique:siswa,nik_siswa',
-            'nipd' => 'nullable|string|max:9',
-            'nisn' => 'nullable|string|max:10',
-            'nama_siswa' => 'required|string|max:255',
-            'tempat_lahir' => 'required|string|max:255',
-            'tanggal_lahir' => 'required|date',
-            'jenis_kelamin' => 'required|string|max:255',
-            'agama' => 'required|string|max:255',
-            'alamat' => 'required|string|max:255',
-            'anak_ke' => 'required|integer',
-            'jumlah_saudara' => 'required|integer' ,
-            'berat_badan' => 'required|integer',
-            'tinggi_badan' => 'required|integer',
-            'lingkar_kepala' => 'nullable|integer',
-            'kelas_id' => 'required|exists:kelas,id',
-            'status' => 'required|string|max:255',
-            'tahun_ajaran_id' => 'required|exists:tahun_ajaran,id',
-            'tahun_lulus_id' => 'nullable|exists:tahun_ajaran,id'
+{
+    $validated = $request->validate([
+        'no_kk' => 'required|exists:orangtua,no_kk',
+        'nik_siswa' => 'required|unique:siswa,nik_siswa',
+        'nipd' => 'nullable|string|max:9',
+        'nisn' => 'nullable|string|max:10',
+        'nama_siswa' => 'required|string|max:255',
+        'tempat_lahir' => 'required|string|max:255',
+        'tanggal_lahir' => 'required|date',
+        'jenis_kelamin' => 'required|string|max:255',
+        'agama' => 'required|string|max:255',
+        'alamat' => 'required|string|max:255',
+        'anak_ke' => 'required|integer',
+        'jumlah_saudara' => 'required|integer' ,
+        'berat_badan' => 'required|integer',
+        'tinggi_badan' => 'required|integer',
+        'lingkar_kepala' => 'nullable|integer',
+        'kelas_id' => 'required|exists:kelas,id',
+        'status' => 'required|string|max:255',
+        'tahun_ajaran_id' => 'required|exists:tahun_ajaran,id',
+        'tahun_lulus_id' => 'nullable|exists:tahun_ajaran,id'
+    ]);
+
+    $validated['tanggal_lahir'] = Carbon::parse($validated['tanggal_lahir'])->format('Y-m-d');
+
+    // Mulai transaction untuk memastikan konsistensi data
+    DB::beginTransaction();
+
+    try {
+        // Buat data siswa
+        $siswa = Siswa::create($validated);
+
+        // Buat user untuk siswa baru (logika sama seperti di import)
+        // ambil 2 kata awal dari nama
+        $namaArray = explode(' ', trim($siswa->nama_siswa));
+        $duaKataAwal = implode('', array_slice($namaArray, 0, 2));
+        $username = strtolower($duaKataAwal);
+
+        // Cek jika username sudah ada, tambahkan angka unik
+        $originalUsername = $username;
+        $counter = 1;
+        while (User::where('username', $username)->exists()) {
+            $username = $originalUsername . $counter;
+            $counter++;
+        }
+
+        $nisn = $siswa->nisn ?? '123';
+        $lastThree = substr($nisn, -3);
+        $password = $username . $lastThree;
+
+        $user = User::create([
+            'name' => $siswa->nama_siswa,
+            'username' => $username,
+            'password' => Hash::make($password),
+            'user_type' => 'siswa',
+            'siswa_id' => $siswa->id,
         ]);
 
-        $validated['tanggal_lahir'] = Carbon::parse($validated['tanggal_lahir'])->format('Y-m-d');
-
-        $siswa = Siswa::create($validated);
+        DB::commit();
 
         return response()->json([
             'data' => $siswa,
-            'message' => 'Data Siswa Berhasil Ditambahkan',
+            'user' => [
+                'username' => $user->username,
+                'password' => 'username + 3 digit terakhir NISN'
+            ],
+            'message' => 'Data Siswa Berhasil Ditambahkan dan akun berhasil dibuat',
             'code' => 201,
         ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+
+        return response()->json([
+            'message' => 'Gagal menambahkan data siswa: ' . $e->getMessage(),
+            'code' => 500,
+        ], 500);
     }
+}
 
     /**
      * Display the specified resource.
@@ -336,12 +382,32 @@ class SiswaController extends Controller
      * @return \Illuminate\Http\Response
      */
     public function destroy($id)
-    {
+{
+    DB::beginTransaction();
+
+    try {
         $siswa = Siswa::findOrFail($id);
+
+        // Hapus user yang terkait dengan siswa
+        User::where('siswa_id', $id)->delete();
+
+        // Hapus siswa
         $siswa->delete();
+
+        DB::commit();
+
         return response()->json([
-            'message' => 'Data Siswa Berhasil Dihapus',
+            'message' => 'Data siswa dan akun terkait berhasil dihapus',
             'code' => 200,
         ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+
+        return response()->json([
+            'message' => 'Gagal menghapus data siswa: ' . $e->getMessage(),
+            'code' => 500,
+        ], 500);
     }
+}
 }
